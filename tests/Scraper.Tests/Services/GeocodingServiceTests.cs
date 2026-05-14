@@ -14,15 +14,12 @@ public class GeocodingServiceTests
     public async Task GetCoordinates_ValidAddress_ReturnsLatLng()
     {
         var handler = new MockHttpMessageHandler();
-        handler.Setup("maps.googleapis.com", HttpStatusCode.OK, """
-            {
-              "status": "OK",
-              "results": [{ "geometry": { "location": { "lat": 25.033, "lng": 121.565 } } }]
-            }
+        handler.Setup("nominatim.openstreetmap.org", HttpStatusCode.OK, """
+            [{"lat":"25.033","lon":"121.565","display_name":"台北市大安區復興南路一段"}]
             """);
         var svc = BuildService(handler);
 
-        var result = await svc.GetCoordinatesAsync("台北市大安區復興南路一段", "dummy-key");
+        var result = await svc.GetCoordinatesAsync("台北市大安區復興南路一段");
 
         Assert.NotNull(result);
         Assert.Equal(25.033, result.Value.Lat, precision: 3);
@@ -33,12 +30,20 @@ public class GeocodingServiceTests
     public async Task GetCoordinates_ZeroResults_ReturnsNull()
     {
         var handler = new MockHttpMessageHandler();
-        handler.Setup("maps.googleapis.com", HttpStatusCode.OK, """
-            { "status": "ZERO_RESULTS", "results": [] }
-            """);
+        handler.Setup("nominatim.openstreetmap.org", HttpStatusCode.OK, "[]");
         var svc = BuildService(handler);
 
-        var result = await svc.GetCoordinatesAsync("不存在的地址xyz", "dummy-key");
+        var result = await svc.GetCoordinatesAsync("不存在的地址xyz");
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetCoordinates_EmptyAddress_ReturnsNull()
+    {
+        var svc = BuildService(new MockHttpMessageHandler());
+
+        var result = await svc.GetCoordinatesAsync("   ");
 
         Assert.Null(result);
     }

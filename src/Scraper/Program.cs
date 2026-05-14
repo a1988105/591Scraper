@@ -25,8 +25,6 @@ var telegramToken = Environment.GetEnvironmentVariable("TELEGRAM_BOT_TOKEN")
     ?? throw new InvalidOperationException("TELEGRAM_BOT_TOKEN is required.");
 var telegramChatId = Environment.GetEnvironmentVariable("TELEGRAM_CHAT_ID")
     ?? throw new InvalidOperationException("TELEGRAM_CHAT_ID is required.");
-var googleMapsKey = Environment.GetEnvironmentVariable("GOOGLE_MAPS_API_KEY")
-    ?? throw new InvalidOperationException("GOOGLE_MAPS_API_KEY is required.");
 
 var services = new ServiceCollection();
 services.AddHttpClient();
@@ -64,7 +62,8 @@ foreach (var item in newItems)
     if (!detailFetched)
         detailUnavailableCount++;
 
-    var coords = await geocoding.GetCoordinatesAsync(item.Address, googleMapsKey);
+    var coords = await geocoding.GetCoordinatesAsync(item.Address);
+    await Task.Delay(1100); // Nominatim rate limit: 1 req/sec
     Console.WriteLine($"Processing {item.Title} ({item.PostId}) - address: {item.Address}");
 
     var listing = new Listing

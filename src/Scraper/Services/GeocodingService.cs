@@ -1,38 +1,43 @@
-using System.Net;
 using System.Net.Http.Json;
-using Scraper.Models;
+using System.Text.Json.Serialization;
 
 namespace Scraper.Services;
 
 public class GeocodingService(HttpClient httpClient)
 {
-    public async Task<(double Lat, double Lng)?> GetCoordinatesAsync(string address, string apiKey)
+    private const string UserAgent = "rental-monitor/1.0";
+
+    public async Task<(double Lat, double Lng)?> GetCoordinatesAsync(string address)
     {
-        if (!TryBuildGeocodingUri(address, apiKey, out var uri))
+        if (string.IsNullOrWhiteSpace(address)) return null;
+
+        var encoded = Uri.EscapeDataString(address.Trim());
+        var url = $"https://nominatim.openstreetmap.org/search?q={encoded}&format=json&limit=1&accept-language=zh-TW";
+
+        using var req = new HttpRequestMessage(HttpMethod.Get, url);
+        req.Headers.Add("User-Agent", UserAgent);
+
+        var response = await httpClient.SendAsync(req);
+        if (!response.IsSuccessStatusCode) return null;
+
+        var results = await response.Content.ReadFromJsonAsync<List<NominatimResult>>();
+        if (results is null || results.Count == 0) return null;
+
+        if (!double.TryParse(results[0].Lat, System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var lat) ||
+            !double.TryParse(results[0].Lon, System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var lng))
             return null;
 
-        var response = await httpClient.GetFromJsonAsync<GeocodingResponse>(uri);
-        if (response?.Status != "OK" || response.Results.Count == 0) return null;
-        var loc = response.Results[0].Geometry.Location;
-        return (loc.Lat, loc.Lng);
+        return (lat, lng);
     }
+}
 
-    internal static bool TryBuildGeocodingUri(string address, string apiKey, out Uri? uri)
-    {
-        uri = null;
+internal class NominatimResult
+{
+    [JsonPropertyName("lat")]
+    public string Lat { get; set; } = default!;
 
-        if (string.IsNullOrWhiteSpace(address) || string.IsNullOrWhiteSpace(apiKey))
-            return false;
-
-        var encoded = WebUtility.UrlEncode(address.Trim());
-        var url = $"https://maps.googleapis.com/maps/api/geocode/json?address={encoded}&key={apiKey}&language=zh-TW";
-
-        if (url.Length > 2048)
-            return false;
-
-        if (!Uri.TryCreate(url, UriKind.Absolute, out uri))
-            return false;
-
-        return true;
-    }
+    [JsonPropertyName("lon")]
+    public string Lon { get; set; } = default!;
 }
