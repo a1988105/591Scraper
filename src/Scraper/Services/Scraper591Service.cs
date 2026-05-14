@@ -28,6 +28,13 @@ public class Scraper591Service(HttpClient httpClient, System.Net.CookieContainer
 
         Console.WriteLine($"[Debug] init status={(int)initResp.StatusCode}");
 
+        // Print all cookies stored by CookieContainer
+        if (cookieContainer != null)
+        {
+            var allCookies = cookieContainer.GetCookies(new Uri("https://rent.591.com.tw/"));
+            Console.WriteLine($"[Debug] all cookies: {string.Join(", ", allCookies.Cast<System.Net.Cookie>().Select(c => $"{c.Name}={c.Value[..Math.Min(c.Value.Length,10)]}..."))}");
+        }
+
         // CookieContainer intercepts Set-Cookie headers — read T591_TOKEN directly from it
         var csrfToken = cookieContainer?
             .GetCookies(new Uri("https://rent.591.com.tw/"))["T591_TOKEN"]?.Value ?? "";
