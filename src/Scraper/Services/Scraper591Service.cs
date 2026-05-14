@@ -21,6 +21,23 @@ public class Scraper591Service(HttpClient httpClient, System.Net.CookieContainer
 
     public async Task<List<SearchItem>> SearchListingsAsync(ScraperConfig config)
     {
+        // Step 1: Get CSRF token from homepage
+        var initReq = new HttpRequestMessage(HttpMethod.Get, "https://rent.591.com.tw/");
+        initReq.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36");
+        initReq.Headers.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+        initReq.Headers.Add("Accept-Language", "zh-TW,zh;q=0.9");
+        var initResp = await httpClient.SendAsync(initReq);
+        var html = await initResp.Content.ReadAsStringAsync();
+
+        var csrfToken = "";
+        var metaMatch = System.Text.RegularExpressions.Regex.Match(
+            html, @"<meta\s+name=""csrf-token""\s+content=""([^""]+)""");
+        if (metaMatch.Success) csrfToken = metaMatch.Groups[1].Value;
+        if (string.IsNullOrEmpty(csrfToken))
+            csrfToken = cookieContainer?.GetCookies(new Uri("https://rent.591.com.tw/"))["T591_TOKEN"]?.Value ?? "";
+
+        Console.WriteLine($"[Debug] csrfToken={csrfToken[..Math.Min(csrfToken.Length, 10)]}...");
+
         var sections = string.Join(",",
             config.Districts
                 .Where(d => DistrictCodes.ContainsKey(d))
@@ -31,36 +48,43 @@ public class Scraper591Service(HttpClient httpClient, System.Net.CookieContainer
                 .Where(t => RoomTypeCodes.ContainsKey(t))
                 .Select(t => RoomTypeCodes[t]));
 
-        // Probe a few candidate BFF paths to find the correct one
-        var candidates = new[]
+        // Step 2: POST to rsList with _token in form body (standard Laravel CSRF)
+        var formData = new Dictionary<string, string>
         {
-            $"https://bff.591.com.tw/v1/house/rent/search?type={types}&region=1&section={sections}&price={config.MaxPrice}&priceType=1&order=posttime&orderType=desc&firstRow=0&totalRows=30",
-            $"https://bff.591.com.tw/v1/house/rent/list?type={types}&region=1&section={sections}&price={config.MaxPrice}&priceType=1&order=posttime&orderType=desc&firstRow=0&totalRows=30",
-            $"https://bff.591.com.tw/v1/house/search?type={types}&region=1&section={sections}&price={config.MaxPrice}&order=posttime&orderType=desc&firstRow=0&totalRows=30",
+            ["_token"] = csrfToken,
+            ["is_new_list"] = "1",
+            ["type"] = types,
+            ["region"] = "1",
+            ["section"] = sections,
+            ["price"] = $"0_{config.MaxPrice}",
+            ["order"] = "posttime",
+            ["orderType"] = "desc",
+            ["firstRow"] = "0",
+            ["totalRows"] = "30",
         };
 
-        foreach (var url in candidates)
-        {
-            var req = new HttpRequestMessage(HttpMethod.Get, url);
-            req.Headers.Add("User-Agent", "591/6.0.0 (iPhone; iOS 16.0)");
-            req.Headers.Add("Accept", "application/json");
+        var req = new HttpRequestMessage(HttpMethod.Post, "https://rent.591.com.tw/home/search/rsList");
+        req.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36");
+        req.Headers.Add("Accept", "application/json, text/javascript, */*; q=0.01");
+        req.Headers.Add("X-Requested-With", "XMLHttpRequest");
+        req.Headers.Add("X-CSRF-Token", csrfToken);
+        req.Headers.Add("Referer", "https://rent.591.com.tw/");
+        req.Content = new FormUrlEncodedContent(formData);
 
-            var response = await httpClient.SendAsync(req);
-            var body = await response.Content.ReadAsStringAsync();
-            Console.WriteLine($"[Debug] {url.Split('?')[0]} → {(int)response.StatusCode}: {body[..Math.Min(body.Length, 150)]}");
+        var response = await httpClient.SendAsync(req);
+        var body = await response.Content.ReadAsStringAsync();
+        Console.WriteLine($"[Debug] search → {(int)response.StatusCode}: {body[..Math.Min(body.Length, 200)]}");
 
-            if (response.IsSuccessStatusCode)
-            {
-                var result = await System.Text.Json.JsonSerializer.DeserializeAsync<SearchResponse>(
-                    new System.IO.MemoryStream(System.Text.Encoding.UTF8.GetBytes(body)));
-                if (result?.Status == "1")
-                    return result.Data.Items
-                        .Where(item => double.TryParse(item.Area, out var area) && area >= config.MinSizePing)
-                        .ToList();
-            }
-        }
+        if (!response.IsSuccessStatusCode) return new List<SearchItem>();
 
-        return new List<SearchItem>();
+        var result = await System.Text.Json.JsonSerializer.DeserializeAsync<SearchResponse>(
+            new System.IO.MemoryStream(System.Text.Encoding.UTF8.GetBytes(body)));
+
+        if (result?.Status != "1") return new List<SearchItem>();
+
+        return result.Data.Items
+            .Where(item => double.TryParse(item.Area, out var area) && area >= config.MinSizePing)
+            .ToList();
     }
 
     public async Task<DetailData?> GetListingDetailAsync(string postId)
