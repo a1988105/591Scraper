@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>591 租屋追蹤</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
@@ -60,16 +61,7 @@
     </div>
   </div>
 
-  <script>
-    fetch('/api/maps-key')
-      .then(r => r.json())
-      .then(data => {
-        const script = document.createElement('script');
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${data.key}&callback=initMap&language=zh-TW`;
-        script.async = true;
-        document.head.appendChild(script);
-      });
-  </script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

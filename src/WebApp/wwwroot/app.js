@@ -6,15 +6,17 @@ let favoriteIds = new Set();
 let activeView = 'favorites';
 let currentListingId = null;
 
-// ── Map init (called by Google Maps API callback) ────────────────
-window.initMap = function () {
-  map = new google.maps.Map(document.getElementById('map'), {
-    center: { lat: 25.033, lng: 121.565 },
-    zoom: 13,
-    styles: darkMapStyles()
-  });
+// ── Map init ─────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  map = L.map('map', { zoomControl: true }).setView([25.033, 121.565], 13);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    maxZoom: 19
+  }).addTo(map);
+
   loadView('favorites');
-};
+});
 
 // ── View switching ───────────────────────────────────────────────
 window.switchView = function (view) {
@@ -74,32 +76,35 @@ window.applyFilters = async function () {
 };
 
 // ── Render markers ───────────────────────────────────────────────
+function makeCircleIcon(color) {
+  return L.divIcon({
+    className: '',
+    html: `<div style="
+      width:18px;height:18px;border-radius:50%;
+      background:${color};border:2px solid #fff;
+      box-shadow:0 1px 4px rgba(0,0,0,0.5)"></div>`,
+    iconSize: [18, 18],
+    iconAnchor: [9, 9]
+  });
+}
+
 function renderMarkers(listings) {
   listings.forEach(listing => {
     if (!listing.lat || !listing.lng) return;
 
     const isFav = favoriteIds.has(listing.id);
-    const marker = new google.maps.Marker({
-      position: { lat: listing.lat, lng: listing.lng },
-      map,
-      title: listing.title,
-      icon: {
-        path: google.maps.SymbolPath.CIRCLE,
-        scale: 9,
-        fillColor: isFav ? '#10b981' : '#6366f1',
-        fillOpacity: 1,
-        strokeColor: '#fff',
-        strokeWeight: 2
-      }
-    });
+    const marker = L.marker([listing.lat, listing.lng], {
+      icon: makeCircleIcon(isFav ? '#10b981' : '#6366f1'),
+      title: listing.title
+    }).addTo(map);
 
-    marker.addListener('click', () => openModal(listing));
+    marker.on('click', () => openModal(listing));
     markers.push(marker);
   });
 }
 
 function clearMarkers() {
-  markers.forEach(m => m.setMap(null));
+  markers.forEach(m => m.remove());
   markers = [];
 }
 
@@ -126,7 +131,7 @@ function renderList(listings, favs) {
     card.addEventListener('click', () => {
       openModal(listing, fav);
       if (listing.lat && listing.lng)
-        map.panTo({ lat: listing.lat, lng: listing.lng });
+        map.panTo([listing.lat, listing.lng]);
     });
     container.appendChild(card);
   });
@@ -204,23 +209,9 @@ window.saveNote = async function (note) {
 
 // ── API helper ───────────────────────────────────────────────────
 async function apiFetch(url, method = 'GET', body = null) {
-  const options = {
-    method,
-    headers: { 'Content-Type': 'application/json' }
-  };
+  const options = { method, headers: { 'Content-Type': 'application/json' } };
   if (body) options.body = JSON.stringify(body);
   const res = await fetch(url, options);
   if (method === 'GET') return res.json();
   return res;
-}
-
-// ── Dark map style ───────────────────────────────────────────────
-function darkMapStyles() {
-  return [
-    { elementType: 'geometry', stylers: [{ color: '#1d2c4d' }] },
-    { elementType: 'labels.text.fill', stylers: [{ color: '#8ec3b9' }] },
-    { elementType: 'labels.text.stroke', stylers: [{ color: '#1a3646' }] },
-    { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#304a7d' }] },
-    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0e1626' }] }
-  ];
 }

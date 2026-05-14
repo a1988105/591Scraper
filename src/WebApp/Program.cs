@@ -12,8 +12,6 @@ var supabaseUrl = Environment.GetEnvironmentVariable("SUPABASE_URL")
     ?? throw new InvalidOperationException("SUPABASE_URL 未設定");
 var supabaseKey = Environment.GetEnvironmentVariable("SUPABASE_KEY")
     ?? throw new InvalidOperationException("SUPABASE_KEY 未設定");
-var googleMapsKey = Environment.GetEnvironmentVariable("GOOGLE_MAPS_API_KEY")
-    ?? throw new InvalidOperationException("GOOGLE_MAPS_API_KEY 未設定");
 
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton(sp =>
@@ -24,9 +22,6 @@ builder.Services.AddSingleton(sp =>
 
 var app = builder.Build();
 app.UseStaticFiles();
-
-// ── Maps key (avoids hardcoding key in HTML) ────────────────────
-app.MapGet("/api/maps-key", () => Results.Ok(new { key = googleMapsKey }));
 
 // ── Listings ────────────────────────────────────────────────────
 app.MapGet("/api/listings", async (
