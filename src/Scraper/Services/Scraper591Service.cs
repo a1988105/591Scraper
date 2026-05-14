@@ -76,6 +76,11 @@ public class Scraper591Service(HttpClient httpClient, System.Net.CookieContainer
         req.Headers.Add("Referer", "https://rent.591.com.tw/");
 
         var response = await httpClient.SendAsync(req);
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync();
+            Console.WriteLine($"[Debug] search status={(int)response.StatusCode}, body={body[..Math.Min(body.Length, 300)]}");
+        }
         response.EnsureSuccessStatusCode();
 
         var result = await response.Content.ReadFromJsonAsync<SearchResponse>();
