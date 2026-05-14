@@ -1,6 +1,11 @@
 using WebApp.Models;
 using WebApp.Services;
 
+EnvFileLoader.LoadIfExists(
+    Path.Combine(AppContext.BaseDirectory, ".env"),
+    Path.Combine(Directory.GetCurrentDirectory(), "src/WebApp/.env"),
+    Path.Combine(Directory.GetCurrentDirectory(), ".env"));
+
 var builder = WebApplication.CreateBuilder(args);
 
 var supabaseUrl = Environment.GetEnvironmentVariable("SUPABASE_URL")
