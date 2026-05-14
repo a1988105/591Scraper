@@ -48,28 +48,29 @@ public class Scraper591Service(HttpClient httpClient, System.Net.CookieContainer
                 .Where(t => RoomTypeCodes.ContainsKey(t))
                 .Select(t => RoomTypeCodes[t]));
 
-        // Step 2: POST to rsList with _token in form body (standard Laravel CSRF)
-        var formData = new Dictionary<string, string>
+        // Debug: print all cookies CookieContainer has for rent.591.com.tw
+        if (cookieContainer != null)
         {
-            ["_token"] = csrfToken,
-            ["is_new_list"] = "1",
-            ["type"] = types,
-            ["region"] = "1",
-            ["section"] = sections,
-            ["price"] = $"0_{config.MaxPrice}",
-            ["order"] = "posttime",
-            ["orderType"] = "desc",
-            ["firstRow"] = "0",
-            ["totalRows"] = "30",
-        };
+            var jar = cookieContainer.GetCookies(new Uri("https://rent.591.com.tw/"));
+            Console.WriteLine($"[Debug] cookies in jar: {string.Join(", ", jar.Cast<System.Net.Cookie>().Select(c => c.Name))}");
+            // Prefer T591_TOKEN from jar over meta tag
+            var jarToken = jar["T591_TOKEN"]?.Value;
+            if (!string.IsNullOrEmpty(jarToken)) csrfToken = jarToken;
+        }
+        Console.WriteLine($"[Debug] final csrfToken={csrfToken[..Math.Min(csrfToken.Length, 10)]}...");
 
-        var req = new HttpRequestMessage(HttpMethod.Post, "https://rent.591.com.tw/home/search/rsList");
+        // Step 2: GET rsList — cookies sent automatically by CookieContainer, CSRF token in header
+        var url = $"https://rent.591.com.tw/home/search/rsList" +
+                  $"?is_new_list=1&type={types}&region=1&section={sections}" +
+                  $"&price=0_{config.MaxPrice}&order=posttime&orderType=desc&firstRow=0&totalRows=30";
+
+        var req = new HttpRequestMessage(HttpMethod.Get, url);
         req.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36");
         req.Headers.Add("Accept", "application/json, text/javascript, */*; q=0.01");
+        req.Headers.Add("Accept-Language", "zh-TW,zh;q=0.9");
         req.Headers.Add("X-Requested-With", "XMLHttpRequest");
         req.Headers.Add("X-CSRF-Token", csrfToken);
         req.Headers.Add("Referer", "https://rent.591.com.tw/");
-        req.Content = new FormUrlEncodedContent(formData);
 
         var response = await httpClient.SendAsync(req);
         var body = await response.Content.ReadAsStringAsync();
