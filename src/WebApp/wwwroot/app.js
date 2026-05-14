@@ -98,7 +98,8 @@ function renderMarkers(listings) {
       title: listing.title
     }).addTo(map);
 
-    marker.on('click', () => openModal(listing));
+    const fav = currentFavorites.find(f => f.listing_id === listing.id);
+    marker.on('click', () => openModal(listing, fav));
     markers.push(marker);
   });
 }
@@ -129,9 +130,9 @@ function renderList(listings, favs) {
       <div class="card-status">${fav ? fav.status : listing.room_type} · ${listing.size_ping} 坪</div>
     `;
     card.addEventListener('click', () => {
-      openModal(listing, fav);
-      if (listing.lat && listing.lng)
-        map.panTo([listing.lat, listing.lng]);
+      if (listing.lat && listing.lng) {
+        map.flyTo([listing.lat, listing.lng], 16, { duration: 0.8 });
+      }
     });
     container.appendChild(card);
   });
