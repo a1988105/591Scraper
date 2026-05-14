@@ -28,28 +28,20 @@ public class Scraper591Service(HttpClient httpClient, System.Net.CookieContainer
 
         Console.WriteLine($"[Debug] init status={(int)initResp.StatusCode}");
 
-        // Print all cookies stored by CookieContainer
-        if (cookieContainer != null)
-        {
-            var allCookies = cookieContainer.GetCookies(new Uri("https://rent.591.com.tw/"));
-            Console.WriteLine($"[Debug] all cookies: {string.Join(", ", allCookies.Cast<System.Net.Cookie>().Select(c => $"{c.Name}={c.Value[..Math.Min(c.Value.Length,10)]}..."))}");
-        }
+        // Parse CSRF token from <meta name="csrf-token" content="..."> in HTML
+        var html = await initResp.Content.ReadAsStringAsync();
+        var csrfToken = "";
+        var metaMatch = System.Text.RegularExpressions.Regex.Match(
+            html, @"<meta\s+name=""csrf-token""\s+content=""([^""]+)""");
+        if (metaMatch.Success)
+            csrfToken = metaMatch.Groups[1].Value;
 
-        // CookieContainer intercepts Set-Cookie headers — read T591_TOKEN directly from it
-        var csrfToken = cookieContainer?
-            .GetCookies(new Uri("https://rent.591.com.tw/"))["T591_TOKEN"]?.Value ?? "";
+        // Fallback: try T591_TOKEN from CookieContainer (for unit tests)
+        if (string.IsNullOrEmpty(csrfToken))
+            csrfToken = cookieContainer?
+                .GetCookies(new Uri("https://rent.591.com.tw/"))["T591_TOKEN"]?.Value ?? "";
 
-        // Fallback: try response headers (for unit tests using MockHttpMessageHandler)
-        if (string.IsNullOrEmpty(csrfToken) && initResp.Headers.TryGetValues("Set-Cookie", out var setCookies))
-        {
-            csrfToken = setCookies
-                .Select(c => c.Split(';')[0].Trim())
-                .Where(c => c.StartsWith("T591_TOKEN="))
-                .Select(c => c["T591_TOKEN=".Length..])
-                .FirstOrDefault() ?? "";
-        }
-
-        Console.WriteLine($"[Debug] csrfToken={csrfToken}");
+        Console.WriteLine($"[Debug] csrfToken={csrfToken[..Math.Min(csrfToken.Length, 15)]}...");
 
         var sections = string.Join(",",
             config.Districts
