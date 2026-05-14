@@ -1,0 +1,7 @@
+bin/
+obj/
+*.user
+.env
+.env.local
+src/Scraper/config.local.json
+.DS_Store
