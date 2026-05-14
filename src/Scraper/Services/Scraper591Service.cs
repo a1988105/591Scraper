@@ -24,24 +24,17 @@ public class Scraper591Service(HttpClient httpClient)
         initRequest.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
         var initResp = await httpClient.SendAsync(initRequest);
 
+        // CookieContainer (set up in Program.cs) automatically stores cookies from init response
         var csrfToken = "";
-        var cookieHeader = "";
         if (initResp.Headers.TryGetValues("Set-Cookie", out var setCookies))
         {
-            var cookiePairs = setCookies
+            csrfToken = setCookies
                 .Select(c => c.Split(';')[0].Trim())
-                .ToList();
-
-            Console.WriteLine($"[Debug] Set-Cookie values: {string.Join(" | ", cookiePairs)}");
-
-            csrfToken = cookiePairs
                 .Where(c => c.StartsWith("T591_TOKEN="))
                 .Select(c => c["T591_TOKEN=".Length..])
                 .FirstOrDefault() ?? "";
-
-            cookieHeader = string.Join("; ", cookiePairs);
         }
-        Console.WriteLine($"[Debug] csrfToken={csrfToken}, cookieHeader={cookieHeader}");
+        Console.WriteLine($"[Debug] csrfToken={csrfToken}");
 
         var sections = string.Join(",",
             config.Districts
@@ -60,10 +53,9 @@ public class Scraper591Service(HttpClient httpClient)
 
         var req = new HttpRequestMessage(HttpMethod.Get, url);
         req.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
-        req.Headers.Add("X-CSRF-Token", csrfToken);
+        if (!string.IsNullOrEmpty(csrfToken))
+            req.Headers.Add("X-CSRF-Token", csrfToken);
         req.Headers.Add("Referer", "https://rent.591.com.tw/");
-        if (!string.IsNullOrEmpty(cookieHeader))
-            req.Headers.Add("Cookie", cookieHeader);
 
         var response = await httpClient.SendAsync(req);
         response.EnsureSuccessStatusCode();
