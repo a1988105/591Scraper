@@ -98,6 +98,10 @@ function renderMarkers(listings) {
       title: listing.title
     }).addTo(map);
 
+    marker.bindTooltip(
+      `<b>${listing.title}</b><br>$${listing.price.toLocaleString()} / 月`,
+      { direction: 'top', offset: [0, -12] }
+    );
     const fav = currentFavorites.find(f => f.listing_id === listing.id);
     marker.on('click', () => openModal(listing, fav));
     markers.push(marker);
