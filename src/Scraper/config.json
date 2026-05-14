@@ -1,9 +1,12 @@
 {
-  "MaxPrice": 20000,
-  "MinSizePing": 8,
-  "Districts": ["大安區", "信義區", "中正區"],
-  "RoomTypes": ["套房", "整層住家"],
+  "Region": 3,
+  "SectionCodes": [37],
+  "Districts": [],
+  "RoomTypes": [],
+  "MinPrice": 18000,
+  "MaxPrice": 30000,
+  "MinSizePing": 2,
   "RequireFurniture": false,
   "RequireInternet": true,
-  "NotifyHour": 8
+  "NotifyHour": 10
 }

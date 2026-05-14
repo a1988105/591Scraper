@@ -4,6 +4,10 @@ using Scraper.Config;
 using Scraper.Models;
 using Scraper.Services;
 
+EnvFileLoader.LoadIfExists(
+    Path.Combine(Directory.GetCurrentDirectory(), ".env"),
+    Path.Combine(AppContext.BaseDirectory, ".env"));
+
 var configuration = new ConfigurationBuilder()
     .SetBasePath(AppContext.BaseDirectory)
     .AddJsonFile("config.json", optional: false)
@@ -11,18 +15,18 @@ var configuration = new ConfigurationBuilder()
     .Build();
 
 var config = configuration.Get<ScraperConfig>()
-    ?? throw new InvalidOperationException("config.json 讀取失敗");
+    ?? throw new InvalidOperationException("config.json is missing or invalid.");
 
 var supabaseUrl = Environment.GetEnvironmentVariable("SUPABASE_URL")
-    ?? throw new InvalidOperationException("SUPABASE_URL 環境變數未設定");
+    ?? throw new InvalidOperationException("SUPABASE_URL is required.");
 var supabaseKey = Environment.GetEnvironmentVariable("SUPABASE_KEY")
-    ?? throw new InvalidOperationException("SUPABASE_KEY 環境變數未設定");
+    ?? throw new InvalidOperationException("SUPABASE_KEY is required.");
 var telegramToken = Environment.GetEnvironmentVariable("TELEGRAM_BOT_TOKEN")
-    ?? throw new InvalidOperationException("TELEGRAM_BOT_TOKEN 環境變數未設定");
+    ?? throw new InvalidOperationException("TELEGRAM_BOT_TOKEN is required.");
 var telegramChatId = Environment.GetEnvironmentVariable("TELEGRAM_CHAT_ID")
-    ?? throw new InvalidOperationException("TELEGRAM_CHAT_ID 環境變數未設定");
+    ?? throw new InvalidOperationException("TELEGRAM_CHAT_ID is required.");
 var googleMapsKey = Environment.GetEnvironmentVariable("GOOGLE_MAPS_API_KEY")
-    ?? throw new InvalidOperationException("GOOGLE_MAPS_API_KEY 環境變數未設定");
+    ?? throw new InvalidOperationException("GOOGLE_MAPS_API_KEY is required.");
 
 var services = new ServiceCollection();
 services.AddHttpClient();
@@ -34,28 +38,34 @@ var geocoding = new GeocodingService(httpFactory.CreateClient());
 var supabase = new SupabaseService(httpFactory.CreateClient(), supabaseUrl, supabaseKey);
 var telegram = new TelegramService(httpFactory.CreateClient());
 
-Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] 591 爬蟲啟動");
+Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Start scraping 591");
 
-// Step 1: 搜尋 591
 var searchItems = await scraper591.SearchListingsAsync(config);
-Console.WriteLine($"找到 {searchItems.Count} 筆符合條件的物件");
+Console.WriteLine($"Fetched listings: {searchItems.Count}");
 
 if (searchItems.Count == 0) return;
 
-// Step 2: 過濾已存在
 var candidateIds = searchItems.Select(x => x.PostId).ToList();
 var existingIds = await supabase.GetExistingIdsAsync(candidateIds);
 var newItems = searchItems.Where(x => !existingIds.Contains(x.PostId)).ToList();
-Console.WriteLine($"其中 {newItems.Count} 筆為新物件");
+Console.WriteLine($"New listings after dedupe: {newItems.Count}");
 
 if (newItems.Count == 0) return;
 
-// Step 3: 抓取詳細資訊 + 組裝 Listing
 var newListings = new List<Listing>();
+var detailUnavailableCount = 0;
+var filteredByFurnitureCount = 0;
+var filteredByInternetCount = 0;
+
 foreach (var item in newItems)
 {
     var detail = await scraper591.GetListingDetailAsync(item.PostId);
+    var detailFetched = detail is not null;
+    if (!detailFetched)
+        detailUnavailableCount++;
+
     var coords = await geocoding.GetCoordinatesAsync(item.Address, googleMapsKey);
+    Console.WriteLine($"Processing {item.Title} ({item.PostId}) - address: {item.Address}");
 
     var listing = new Listing
     {
@@ -75,26 +85,42 @@ foreach (var item in newItems)
         PetAllowed = detail?.CanKeepPet == 1,
         Url = $"https://rent.591.com.tw/rent-detail-{item.PostId}.html",
         Images = detail?.PhotoList.Select(ph => ph.Src).ToList()
-                 ?? (item.Photo != "" ? new List<string> { item.Photo } : new List<string>()),
+                 ?? (item.Photo != "" ? [item.Photo] : []),
         ScrapedAt = DateTimeOffset.UtcNow,
         Notified = false
     };
 
-    if (config.RequireFurniture && !listing.HasFurniture) continue;
-    if (config.RequireInternet && !listing.HasInternet) continue;
+    if (!PriceFilter.IsWithinRange(item.Price, config))
+        continue;
+
+    if (config.RequireFurniture && detailFetched && !listing.HasFurniture)
+    {
+        filteredByFurnitureCount++;
+        continue;
+    }
+
+    if (config.RequireInternet && detailFetched && !listing.HasInternet)
+    {
+        filteredByInternetCount++;
+        continue;
+    }
+
+    if (!EquipmentFilter.ShouldInclude(config, listing, detailFetched))
+        continue;
 
     newListings.Add(listing);
 }
 
-Console.WriteLine($"通過設備篩選：{newListings.Count} 筆");
+Console.WriteLine($"Passed equipment filter: {newListings.Count}");
+Console.WriteLine($"Detail fetch failed: {detailUnavailableCount}");
+Console.WriteLine($"Filtered by furniture: {filteredByFurnitureCount}");
+Console.WriteLine($"Filtered by internet: {filteredByInternetCount}");
 
 if (newListings.Count == 0) return;
 
-// Step 4: Upsert to Supabase
 await supabase.UpsertListingsAsync(newListings);
-Console.WriteLine("已寫入 Supabase");
+Console.WriteLine("Upserted to Supabase");
 
-// Step 5: Send Telegram notifications
 var notifiedIds = new List<string>();
 foreach (var listing in newListings)
 {
@@ -102,17 +128,16 @@ foreach (var listing in newListings)
     {
         await telegram.SendNotificationAsync(listing, telegramToken, telegramChatId);
         notifiedIds.Add(listing.Id);
-        Console.WriteLine($"已推送：{listing.Title} (${listing.Price:N0})");
-        await Task.Delay(500); // Telegram rate limit
+        Console.WriteLine($"Notified: {listing.Title} (${listing.Price:N0})");
+        await Task.Delay(500);
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"Telegram 推送失敗 [{listing.Id}]: {ex.Message}");
+        Console.WriteLine($"Telegram failed [{listing.Id}]: {ex.Message}");
     }
 }
 
-// Step 6: Mark notified
 if (notifiedIds.Count > 0)
     await supabase.MarkNotifiedAsync(notifiedIds);
 
-Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] 完成。推送 {notifiedIds.Count} 筆。");
+Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Done. Notified: {notifiedIds.Count}");

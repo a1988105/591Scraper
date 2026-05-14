@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Json;
 using System.Text.RegularExpressions;
 using Scraper.Config;
@@ -9,44 +10,122 @@ public class Scraper591Service(HttpClient httpClient)
 {
     private static readonly Dictionary<string, string> DistrictCodes = new()
     {
-        ["中正區"] = "1", ["大同區"] = "2", ["中山區"] = "3", ["松山區"] = "4",
-        ["大安區"] = "7", ["萬華區"] = "5", ["信義區"] = "6", ["士林區"] = "8",
-        ["北投區"] = "9", ["內湖區"] = "10", ["南港區"] = "11", ["文山區"] = "12"
+        ["中正區"] = "1",
+        ["大同區"] = "2",
+        ["中山區"] = "3",
+        ["松山區"] = "4",
+        ["萬華區"] = "5",
+        ["信義區"] = "6",
+        ["大安區"] = "7",
+        ["士林區"] = "8",
+        ["北投區"] = "9",
+        ["內湖區"] = "10",
+        ["南港區"] = "11",
+        ["文山區"] = "12"
     };
 
-    // kind URL codes: 整層住家=1, 獨立套房=2, 雅房=3, 分租套房=8
     private static readonly Dictionary<string, string> RoomTypeCodes = new()
     {
-        ["整層住家"] = "1", ["獨立套房"] = "2", ["雅房"] = "3", ["分租套房"] = "8"
+        ["整層住家"] = "1",
+        ["獨立套房"] = "2",
+        ["雅房"] = "3",
+        ["分租套房"] = "8"
     };
 
     private static readonly string[] KnownKinds = ["整層住家", "獨立套房", "雅房", "分租套房"];
 
-    public async Task<List<SearchItem>> SearchListingsAsync(ScraperConfig config)
+    internal static string BuildSearchUrl(ScraperConfig config, int? page = null)
     {
-        var sections = string.Join(",",
-            config.Districts
-                .Where(d => DistrictCodes.ContainsKey(d))
-                .Select(d => DistrictCodes[d]));
-
+        var sections = ResolveSectionCodes(config);
         var kinds = string.Join(",",
             config.RoomTypes
                 .Where(t => RoomTypeCodes.ContainsKey(t))
                 .Select(t => RoomTypeCodes[t]));
 
-        var url = $"https://rent.591.com.tw/list?region=1&section={sections}&kind={kinds}" +
-                  $"&price=0_{config.MaxPrice}&order=posttime&orderType=desc";
+        var queryParts = new List<string>
+        {
+            $"region={config.Region}",
+            $"price={config.MinPrice}_{config.MaxPrice}",
+            "order=posttime",
+            "orderType=desc"
+        };
 
-        var req = new HttpRequestMessage(HttpMethod.Get, url);
-        req.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36");
-        req.Headers.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
-        req.Headers.Add("Accept-Language", "zh-TW,zh;q=0.9");
+        if (!string.IsNullOrWhiteSpace(sections))
+            queryParts.Add($"section={sections}");
 
-        var response = await httpClient.SendAsync(req);
-        if (!response.IsSuccessStatusCode) return new List<SearchItem>();
+        if (!string.IsNullOrWhiteSpace(kinds))
+            queryParts.Add($"kind={kinds}");
 
-        var html = await response.Content.ReadAsStringAsync();
-        return ParseHtmlListings(html, config);
+        if (page is > 1)
+        {
+            queryParts.Add($"page={page.Value}");
+            queryParts.Add($"firstRow={(page.Value - 1) * 30}");
+        }
+
+        return $"https://rent.591.com.tw/list?{string.Join("&", queryParts)}";
+    }
+
+    internal static string ResolveSectionCodes(ScraperConfig config)
+    {
+        if (config.SectionCodes.Count > 0)
+            return string.Join(",", config.SectionCodes);
+
+        var mappedSections = config.Districts
+            .Where(d => DistrictCodes.ContainsKey(d))
+            .Select(d => DistrictCodes[d])
+            .ToList();
+
+        if (config.Districts.Count > 0 && mappedSections.Count == 0)
+        {
+            throw new InvalidOperationException(
+                $"Districts could not be mapped for region {config.Region}: {string.Join(", ", config.Districts)}. " +
+                "Use SectionCodes for non-Taipei regions or fix the district names.");
+        }
+
+        return string.Join(",", mappedSections);
+    }
+
+    public async Task<List<SearchItem>> SearchListingsAsync(ScraperConfig config)
+    {
+        var items = new List<SearchItem>();
+        var seenIds = new HashSet<string>();
+
+        for (var page = 1; ; page++)
+        {
+            var url = BuildSearchUrl(config, page);
+
+            var req = new HttpRequestMessage(HttpMethod.Get, url);
+            req.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36");
+            req.Headers.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+            req.Headers.Add("Accept-Language", "zh-TW,zh;q=0.9");
+
+            var response = await httpClient.SendAsync(req);
+            if (!response.IsSuccessStatusCode)
+                break;
+
+            var html = await response.Content.ReadAsStringAsync();
+            var pageItems = ParseHtmlListings(html, config);
+            Console.WriteLine($"Page {page} parsed items: {pageItems.Count}");
+            if (pageItems.Count == 0)
+                break;
+
+            var addedThisPage = 0;
+            foreach (var item in pageItems)
+            {
+                if (seenIds.Add(item.PostId))
+                {
+                    items.Add(item);
+                    addedThisPage++;
+                }
+            }
+
+            if (addedThisPage == 0)
+                break;
+
+            Console.WriteLine($"Page {page} new items: {addedThisPage}");
+        }
+
+        return items;
     }
 
     internal static List<SearchItem> ParseHtmlListings(string html, ScraperConfig config)
@@ -64,8 +143,7 @@ public class Scraper591Service(HttpClient httpClient)
             var titleMatch = Regex.Match(block, @"title=""([^""]+)""");
             var title = titleMatch.Success ? titleMatch.Groups[1].Value : "";
 
-            var priceMatch = Regex.Match(block, @"class=""price font-arial""[^>]*>([0-9,]+)");
-            var price = priceMatch.Success ? priceMatch.Groups[1].Value.Replace(",", "") : "0";
+            var price = ExtractPrice(block);
 
             var kindName = KnownKinds.FirstOrDefault(kind =>
                 Regex.IsMatch(block, $@">{Regex.Escape(kind)}<")) ?? "";
@@ -76,12 +154,21 @@ public class Scraper591Service(HttpClient httpClient)
                 RegexOptions.Singleline);
             var area = sizeMatch.Success ? sizeMatch.Groups[1].Value : "0";
 
-            var addressMatches = Regex.Matches(block, @">([^<]*-[^<]+)<");
-            var address = addressMatches.Count > 0
-                ? addressMatches[addressMatches.Count - 1].Groups[1].Value.Trim()
-                : "";
+            var infoTexts = Regex.Matches(
+                    block,
+                    @"class=""item-info-txt""[^>]*>(.*?)</div>",
+                    RegexOptions.Singleline)
+                .Select(m => Regex.Replace(m.Groups[1].Value!, "<[^>]+>", " "))
+                .Select(WebUtility.HtmlDecode)
+                .Select(text => Regex.Replace(text!, @"\s+", " ").Trim())
+                .Where(text => !string.IsNullOrWhiteSpace(text))
+                .ToList();
+            var address = infoTexts.Count > 1 ? infoTexts[1] : "";
 
             if (!double.TryParse(area, out var sizePing) || sizePing < config.MinSizePing)
+                continue;
+
+            if (!PriceFilter.IsWithinRange(price, config))
                 continue;
 
             items.Add(new SearchItem
@@ -111,5 +198,37 @@ public class Scraper591Service(HttpClient httpClient)
 
         var result = await response.Content.ReadFromJsonAsync<DetailResponse>();
         return result?.Status == 1 ? result.Data : null;
+    }
+
+    private static string ExtractPrice(string block)
+    {
+        var itemInfoPriceMatch = Regex.Match(
+            block,
+            @"class=""item-info-price""[^>]*>(.*?)</div>\s*</div>",
+            RegexOptions.Singleline);
+        var itemInfoPrice = ExtractFirstNumber(itemInfoPriceMatch.Groups[1].Value);
+        if (!string.IsNullOrWhiteSpace(itemInfoPrice))
+            return itemInfoPrice;
+
+        var legacyPriceMatch = Regex.Match(
+            block,
+            @"class=""price font-arial""[^>]*>(.*?)</(?:span|div)>",
+            RegexOptions.Singleline);
+        var legacyPrice = ExtractFirstNumber(legacyPriceMatch.Groups[1].Value);
+        if (!string.IsNullOrWhiteSpace(legacyPrice))
+            return legacyPrice;
+
+        return "0";
+    }
+
+    private static string ExtractFirstNumber(string html)
+    {
+        if (string.IsNullOrWhiteSpace(html))
+            return "";
+
+        var text = Regex.Replace(html, "<[^>]+>", " ");
+        text = WebUtility.HtmlDecode(text);
+        var numberMatch = Regex.Match(text, @"\d[\d,]*");
+        return numberMatch.Success ? numberMatch.Value.Replace(",", "") : "";
     }
 }

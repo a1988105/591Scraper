@@ -40,18 +40,12 @@ public class TelegramService(HttpClient httpClient)
 
     public string FormatCaption(Listing listing)
     {
-        var bool2emoji = (bool v) => v ? "✅" : "❌";
         return $"""
 *🏠 {listing.Title}*
 
 💰 *${listing.Price:N0} / 月*
 📍 {listing.Address}
-📐 {listing.SizePing} 坪 ｜ {listing.RoomType}
-
-*設備*
-🪑 家具 {bool2emoji(listing.HasFurniture)}  🔥 天然氣 {bool2emoji(listing.HasNaturalGas)}
-📺 第四台 {bool2emoji(listing.HasCableTv)}  🌐 網路 {bool2emoji(listing.HasInternet)}
-🚗 停車 {bool2emoji(listing.HasParking)}  🐾 寵物 {bool2emoji(listing.PetAllowed)}
+📐 {listing.SizePing} 坪｜{listing.RoomType}
 
 [🔗 查看物件]({listing.Url})
 """;

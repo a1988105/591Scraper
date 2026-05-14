@@ -34,9 +34,8 @@ public class Scraper591ServiceTests
           <div class="item-info-title">
             <a href="https://rent.591.com.tw/111" target="_blank" title="套房A">套房A</a>
           </div>
-          <div class="price-info">
-            <div class="price font-arial">15,000</div>
-          </div>
+          <div class="price-info" data-v-93fbb22b="">
+          <span class="price font-arial" data-v-93fbb22b="">16,888</span><span class="unit" data-v-93fbb22b="">元/月</span></div>
           <div class="item-info-txt">
             <i class="ic-house house-home"></i><span>獨立套房</span>
             <span class="line"><div class="inline-flex-row">10坪</div></span>
@@ -76,7 +75,7 @@ public class Scraper591ServiceTests
 
         Assert.Single(items); // 222 filtered out (5坪 < 8坪 MinSizePing)
         Assert.Equal("111", items[0].PostId);
-        Assert.Equal("15000", items[0].Price);
+        Assert.Equal("16888", items[0].Price);
         Assert.Equal("獨立套房", items[0].KindName);
         Assert.Equal("10", items[0].Area);
         Assert.Equal("台北市-大安區某街道", items[0].Address);
