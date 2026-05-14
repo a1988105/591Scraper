@@ -25,8 +25,8 @@ public class Scraper591ServiceTests
     public async Task SearchListings_ParsesItemsFromResponse()
     {
         var handler = new MockHttpMessageHandler();
-        // More specific rules first — MockHttpMessageHandler matches in order
-        handler.Setup("rsList", HttpStatusCode.OK, """
+        // BFF search API (no CSRF required)
+        handler.Setup("bff.591.com.tw/v1/house/rent/search", HttpStatusCode.OK, """
             {
               "status": "1",
               "data": {
@@ -45,7 +45,6 @@ public class Scraper591ServiceTests
               }
             }
             """);
-        handler.Setup("rent.591.com.tw", HttpStatusCode.OK, ""); // catch-all for init request
 
         var svc = BuildService(handler);
         var items = await svc.SearchListingsAsync(BasicConfig());

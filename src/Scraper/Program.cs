@@ -29,10 +29,7 @@ services.AddHttpClient();
 var provider = services.BuildServiceProvider();
 var httpFactory = provider.GetRequiredService<IHttpClientFactory>();
 
-// Scraper591 needs a CookieContainer so cookies from the init request are auto-sent on subsequent requests
-var scraperCookies = new System.Net.CookieContainer();
-var scraperHandler = new HttpClientHandler { CookieContainer = scraperCookies };
-var scraper591 = new Scraper591Service(new HttpClient(scraperHandler), scraperCookies);
+var scraper591 = new Scraper591Service(httpFactory.CreateClient());
 var geocoding = new GeocodingService(httpFactory.CreateClient());
 var supabase = new SupabaseService(httpFactory.CreateClient(), supabaseUrl, supabaseKey);
 var telegram = new TelegramService(httpFactory.CreateClient());

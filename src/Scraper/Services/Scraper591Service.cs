@@ -13,6 +13,7 @@ public class Scraper591Service(HttpClient httpClient, System.Net.CookieContainer
         ["北投區"] = "9", ["內湖區"] = "10", ["南港區"] = "11", ["文山區"] = "12"
     };
 
+    // BFF kind codes: 整層住家=1, 獨立套房=2, 雅房=3, 分租套房=8
     private static readonly Dictionary<string, string> RoomTypeCodes = new()
     {
         ["整層住家"] = "1", ["獨立套房"] = "2", ["雅房"] = "3", ["分租套房"] = "8"
@@ -20,30 +21,6 @@ public class Scraper591Service(HttpClient httpClient, System.Net.CookieContainer
 
     public async Task<List<SearchItem>> SearchListingsAsync(ScraperConfig config)
     {
-        var initRequest = new HttpRequestMessage(HttpMethod.Get, "https://rent.591.com.tw/");
-        initRequest.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36");
-        initRequest.Headers.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
-        initRequest.Headers.Add("Accept-Language", "zh-TW,zh;q=0.9,en;q=0.8");
-        var initResp = await httpClient.SendAsync(initRequest);
-
-        Console.WriteLine($"[Debug] init status={(int)initResp.StatusCode}");
-
-        // Parse CSRF token from <meta name="csrf-token" content="..."> in HTML
-        var html = await initResp.Content.ReadAsStringAsync();
-        Console.WriteLine($"[Debug] html preview={html[..Math.Min(html.Length, 200)]}");
-        var csrfToken = "";
-        var metaMatch = System.Text.RegularExpressions.Regex.Match(
-            html, @"<meta\s+name=""csrf-token""\s+content=""([^""]+)""");
-        if (metaMatch.Success)
-            csrfToken = metaMatch.Groups[1].Value;
-
-        // Fallback: try T591_TOKEN from CookieContainer (for unit tests)
-        if (string.IsNullOrEmpty(csrfToken))
-            csrfToken = cookieContainer?
-                .GetCookies(new Uri("https://rent.591.com.tw/"))["T591_TOKEN"]?.Value ?? "";
-
-        Console.WriteLine($"[Debug] csrfToken={csrfToken[..Math.Min(csrfToken.Length, 15)]}...");
-
         var sections = string.Join(",",
             config.Districts
                 .Where(d => DistrictCodes.ContainsKey(d))
@@ -54,29 +31,29 @@ public class Scraper591Service(HttpClient httpClient, System.Net.CookieContainer
                 .Where(t => RoomTypeCodes.ContainsKey(t))
                 .Select(t => RoomTypeCodes[t]));
 
-        var url = $"https://rent.591.com.tw/home/search/rsList" +
-                  $"?is_new_list=1&type={types}&region=1&section={sections}" +
-                  $"&price=0_{config.MaxPrice}&order=posttime&orderType=desc" +
-                  $"&firstRow=0&totalRows=30";
+        // Use BFF API (mobile app API) — no CSRF required
+        var url = $"https://bff.591.com.tw/v1/house/rent/search" +
+                  $"?type={types}&region=1&section={sections}" +
+                  $"&price={config.MaxPrice}&priceType=1" +
+                  $"&order=posttime&orderType=desc&firstRow=0&totalRows=30";
 
         var req = new HttpRequestMessage(HttpMethod.Get, url);
-        req.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36");
-        req.Headers.Add("Accept", "application/json, text/javascript, */*; q=0.01");
-        req.Headers.Add("Accept-Language", "zh-TW,zh;q=0.9,en;q=0.8");
-        req.Headers.Add("X-Requested-With", "XMLHttpRequest");
-        if (!string.IsNullOrEmpty(csrfToken))
-            req.Headers.Add("X-CSRF-Token", csrfToken);
-        req.Headers.Add("Referer", "https://rent.591.com.tw/");
+        req.Headers.Add("User-Agent", "591/6.0.0 (iPhone; iOS 16.0)");
+        req.Headers.Add("Accept", "application/json");
 
         var response = await httpClient.SendAsync(req);
+        Console.WriteLine($"[Debug] search status={(int)response.StatusCode}");
+
         if (!response.IsSuccessStatusCode)
         {
             var body = await response.Content.ReadAsStringAsync();
-            Console.WriteLine($"[Debug] search status={(int)response.StatusCode}, body={body[..Math.Min(body.Length, 300)]}");
+            Console.WriteLine($"[Debug] search body={body[..Math.Min(body.Length, 300)]}");
+            return new List<SearchItem>();
         }
-        response.EnsureSuccessStatusCode();
 
         var result = await response.Content.ReadFromJsonAsync<SearchResponse>();
+        Console.WriteLine($"[Debug] search status field={result?.Status}, records={result?.Data?.Records}");
+
         if (result?.Status != "1") return new List<SearchItem>();
 
         return result.Data.Items
@@ -88,7 +65,8 @@ public class Scraper591Service(HttpClient httpClient, System.Net.CookieContainer
     {
         var url = $"https://bff.591.com.tw/v1/house/rent/detail?id={postId}";
         var req = new HttpRequestMessage(HttpMethod.Get, url);
-        req.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+        req.Headers.Add("User-Agent", "591/6.0.0 (iPhone; iOS 16.0)");
+        req.Headers.Add("Accept", "application/json");
 
         var response = await httpClient.SendAsync(req);
         if (!response.IsSuccessStatusCode) return null;
