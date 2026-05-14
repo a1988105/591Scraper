@@ -32,6 +32,8 @@ public class Scraper591Service(HttpClient httpClient)
                 .Select(c => c.Split(';')[0].Trim())
                 .ToList();
 
+            Console.WriteLine($"[Debug] Set-Cookie values: {string.Join(" | ", cookiePairs)}");
+
             csrfToken = cookiePairs
                 .Where(c => c.StartsWith("T591_TOKEN="))
                 .Select(c => c["T591_TOKEN=".Length..])
@@ -39,6 +41,7 @@ public class Scraper591Service(HttpClient httpClient)
 
             cookieHeader = string.Join("; ", cookiePairs);
         }
+        Console.WriteLine($"[Debug] csrfToken={csrfToken}, cookieHeader={cookieHeader}");
 
         var sections = string.Join(",",
             config.Districts
