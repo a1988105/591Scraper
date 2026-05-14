@@ -36,6 +36,34 @@ var geocoding = new GeocodingService(httpFactory.CreateClient());
 var supabase = new SupabaseService(httpFactory.CreateClient(), supabaseUrl, supabaseKey);
 var telegram = new TelegramService(httpFactory.CreateClient());
 
+// ── Backfill mode ────────────────────────────────────────────────
+if (args.Contains("--backfill"))
+{
+    Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Backfill mode: geocoding listings without coordinates");
+    var toFill = await supabase.GetListingsWithoutCoordinatesAsync();
+    Console.WriteLine($"Found {toFill.Count} listings with null lat/lng");
+
+    var updated = 0;
+    foreach (var stub in toFill)
+    {
+        var coords = await geocoding.GetCoordinatesAsync(stub.Address);
+        if (coords is null)
+        {
+            Console.WriteLine($"  [skip] {stub.Id} — no result for: {stub.Address}");
+        }
+        else
+        {
+            await supabase.UpdateCoordinatesAsync(stub.Id, coords.Value.Lat, coords.Value.Lng);
+            Console.WriteLine($"  [ok]   {stub.Id} → ({coords.Value.Lat:F4}, {coords.Value.Lng:F4})");
+            updated++;
+        }
+        await Task.Delay(1100); // Nominatim rate limit: 1 req/sec
+    }
+
+    Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Done. Updated {updated}/{toFill.Count}");
+    return;
+}
+
 Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Start scraping 591");
 
 var searchItems = await scraper591.SearchListingsAsync(config);

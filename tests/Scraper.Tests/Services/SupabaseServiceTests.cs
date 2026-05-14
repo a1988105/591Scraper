@@ -44,6 +44,31 @@ public class SupabaseServiceTests
 
         var svc = BuildService(handler);
         await svc.MarkNotifiedAsync(new[] { "id1", "id2" });
+    }
+
+    [Fact]
+    public async Task GetListingsWithoutCoordinates_ReturnsIdAndAddress()
+    {
+        var handler = new MockHttpMessageHandler();
+        handler.Setup("/rest/v1/listings", HttpStatusCode.OK,
+            """[{"id":"abc","address":"台北市大安區復興南路一段"}]""");
+
+        var svc = BuildService(handler);
+        var result = await svc.GetListingsWithoutCoordinatesAsync();
+
+        Assert.Single(result);
+        Assert.Equal("abc", result[0].Id);
+        Assert.Equal("台北市大安區復興南路一段", result[0].Address);
+    }
+
+    [Fact]
+    public async Task UpdateCoordinates_PatchesLatLng()
+    {
+        var handler = new MockHttpMessageHandler();
+        handler.Setup("/rest/v1/listings", HttpStatusCode.NoContent, "");
+
+        var svc = BuildService(handler);
+        await svc.UpdateCoordinatesAsync("abc", 25.033, 121.565);
         // No exception = success
     }
 }

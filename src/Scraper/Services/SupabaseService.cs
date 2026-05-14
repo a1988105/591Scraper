@@ -59,9 +59,44 @@ public class SupabaseService(HttpClient httpClient, string supabaseUrl, string s
         response.EnsureSuccessStatusCode();
     }
 
+    public async Task<List<ListingStub>> GetListingsWithoutCoordinatesAsync()
+    {
+        var url = $"{supabaseUrl}/rest/v1/listings?lat=is.null&select=id,address";
+
+        using var req = new HttpRequestMessage(HttpMethod.Get, url);
+        AddHeaders(req);
+        var response = await httpClient.SendAsync(req);
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync<List<ListingStub>>() ?? new();
+    }
+
+    public async Task UpdateCoordinatesAsync(string id, double lat, double lng)
+    {
+        var url = $"{supabaseUrl}/rest/v1/listings?id=eq.{id}";
+        var body = JsonSerializer.Serialize(new { lat, lng });
+
+        using var req = new HttpRequestMessage(HttpMethod.Patch, url);
+        AddHeaders(req);
+        req.Headers.Add("Prefer", "return=minimal");
+        req.Content = new StringContent(body, Encoding.UTF8, "application/json");
+
+        var response = await httpClient.SendAsync(req);
+        response.EnsureSuccessStatusCode();
+    }
+
     private class IdOnly
     {
         [System.Text.Json.Serialization.JsonPropertyName("id")]
         public string Id { get; set; } = default!;
+    }
+
+    public class ListingStub
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public string Id { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("address")]
+        public string Address { get; set; } = default!;
     }
 }
