@@ -51,41 +51,44 @@ public class Scraper591Service(HttpClient httpClient)
 
     internal static List<SearchItem> ParseHtmlListings(string html, ScraperConfig config)
     {
-        // Each listing card: <div class="item" data-id="12345" ...>
-        var ids = Regex.Matches(html, @"class=""item[^""]*""[^>]*data-id=""(\d+)""")
-            .Select(m => m.Groups[1].Value).ToList();
-
-        var titles = Regex.Matches(html, @"class=""item-info-title""[^>]*>([^<]+)")
-            .Select(m => m.Groups[1].Value.Trim()).ToList();
-
-        var prices = Regex.Matches(html, @"class=""price font-arial""[^>]*>([^<]+)")
-            .Select(m => m.Groups[1].Value.Replace(",", "").Trim()).ToList();
-
-        // Comes in pairs per listing: [0]=種類+坪數, [1]=完整地址, [2]=種類+坪數, [3]=完整地址, ...
-        var infoTxts = Regex.Matches(html, @"class=""item-info-txt""[^>]*>([^<]+)")
-            .Select(m => m.Groups[1].Value.Trim()).ToList();
-
-        var count = Math.Min(ids.Count, Math.Min(titles.Count, prices.Count));
+        var itemMatches = Regex.Matches(html, @"class=""item""\s+data-id=""(\d+)""");
         var items = new List<SearchItem>();
 
-        for (var i = 0; i < count; i++)
+        for (var i = 0; i < itemMatches.Count; i++)
         {
-            var kindTxt = i * 2 < infoTxts.Count ? infoTxts[i * 2] : "";
-            var address = i * 2 + 1 < infoTxts.Count ? infoTxts[i * 2 + 1] : "";
+            var postId = itemMatches[i].Groups[1].Value;
+            var blockStart = itemMatches[i].Index;
+            var blockEnd = i + 1 < itemMatches.Count ? itemMatches[i + 1].Index : html.Length;
+            var block = html[blockStart..blockEnd];
 
-            var kindName = KnownKinds.FirstOrDefault(k => kindTxt.StartsWith(k)) ?? kindTxt;
+            var titleMatch = Regex.Match(block, @"title=""([^""]+)""");
+            var title = titleMatch.Success ? titleMatch.Groups[1].Value : "";
 
-            var sizeMatch = Regex.Match(kindTxt, @"(\d+\.?\d*)坪");
+            var priceMatch = Regex.Match(block, @"class=""price font-arial""[^>]*>([0-9,]+)");
+            var price = priceMatch.Success ? priceMatch.Groups[1].Value.Replace(",", "") : "0";
+
+            var kindName = KnownKinds.FirstOrDefault(kind =>
+                Regex.IsMatch(block, $@">{Regex.Escape(kind)}<")) ?? "";
+
+            var sizeMatch = Regex.Match(
+                block,
+                @"class=""line""[^>]*>.*?>(\d+\.?\d*)",
+                RegexOptions.Singleline);
             var area = sizeMatch.Success ? sizeMatch.Groups[1].Value : "0";
+
+            var addressMatches = Regex.Matches(block, @">([^<]*-[^<]+)<");
+            var address = addressMatches.Count > 0
+                ? addressMatches[addressMatches.Count - 1].Groups[1].Value.Trim()
+                : "";
 
             if (!double.TryParse(area, out var sizePing) || sizePing < config.MinSizePing)
                 continue;
 
             items.Add(new SearchItem
             {
-                PostId = ids[i],
-                Title = titles[i],
-                Price = prices[i],
+                PostId = postId,
+                Title = title,
+                Price = price,
                 Address = address,
                 Area = area,
                 KindName = kindName,

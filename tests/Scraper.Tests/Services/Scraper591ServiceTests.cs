@@ -21,19 +21,46 @@ public class Scraper591ServiceTests
         RequireInternet = false
     };
 
+    private static ScraperConfig ConfigWithMinSizePing(double minSizePing)
+    {
+        var config = BasicConfig();
+        config.MinSizePing = minSizePing;
+        return config;
+    }
+
     private const string SampleListHtml = """
         <html><body>
         <div class="item" data-id="111">
-          <div class="item-info-title" data-v-abc>套房A</div>
-          <div class="price font-arial" data-v-abc>15,000</div>
-          <div class="item-info-txt" data-v-abc>獨立套房10坪</div>
-          <div class="item-info-txt" data-v-abc>台北市大安區某街道</div>
+          <div class="item-info-title">
+            <a href="https://rent.591.com.tw/111" target="_blank" title="套房A">套房A</a>
+          </div>
+          <div class="price-info">
+            <div class="price font-arial">15,000</div>
+          </div>
+          <div class="item-info-txt">
+            <i class="ic-house house-home"></i><span>獨立套房</span>
+            <span class="line"><div class="inline-flex-row">10坪</div></span>
+          </div>
+          <div class="item-info-txt">
+            <i class="ic-house house-place"></i>
+            <span><div class="inline-flex-row">台北市-大安區某街道</div></span>
+          </div>
         </div>
         <div class="item" data-id="222">
-          <div class="item-info-title" data-v-abc>小套房B</div>
-          <div class="price font-arial" data-v-abc>5,000</div>
-          <div class="item-info-txt" data-v-abc>獨立套房5坪</div>
-          <div class="item-info-txt" data-v-abc>台北市大安區另一街道</div>
+          <div class="item-info-title">
+            <a href="https://rent.591.com.tw/222" target="_blank" title="小套房B">小套房B</a>
+          </div>
+          <div class="price-info">
+            <div class="price font-arial">5,000</div>
+          </div>
+          <div class="item-info-txt">
+            <i class="ic-house house-home"></i><span>獨立套房</span>
+            <span class="line"><div class="inline-flex-row">5坪</div></span>
+          </div>
+          <div class="item-info-txt">
+            <i class="ic-house house-place"></i>
+            <span><div class="inline-flex-row">台北市-大安區另一街道</div></span>
+          </div>
         </div>
         </body></html>
         """;
@@ -52,13 +79,13 @@ public class Scraper591ServiceTests
         Assert.Equal("15000", items[0].Price);
         Assert.Equal("獨立套房", items[0].KindName);
         Assert.Equal("10", items[0].Area);
-        Assert.Equal("台北市大安區某街道", items[0].Address);
+        Assert.Equal("台北市-大安區某街道", items[0].Address);
     }
 
     [Fact]
     public void ParseHtmlListings_FiltersSmallRooms()
     {
-        var config = BasicConfig() with { MinSizePing = 6 };
+        var config = ConfigWithMinSizePing(5);
         var items = Scraper591Service.ParseHtmlListings(SampleListHtml, config);
 
         Assert.Equal(2, items.Count);
