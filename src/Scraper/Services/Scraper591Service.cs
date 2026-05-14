@@ -31,34 +31,36 @@ public class Scraper591Service(HttpClient httpClient, System.Net.CookieContainer
                 .Where(t => RoomTypeCodes.ContainsKey(t))
                 .Select(t => RoomTypeCodes[t]));
 
-        // Use BFF API (mobile app API) — no CSRF required
-        var url = $"https://bff.591.com.tw/v1/house/rent/search" +
-                  $"?type={types}&region=1&section={sections}" +
-                  $"&price={config.MaxPrice}&priceType=1" +
-                  $"&order=posttime&orderType=desc&firstRow=0&totalRows=30";
-
-        var req = new HttpRequestMessage(HttpMethod.Get, url);
-        req.Headers.Add("User-Agent", "591/6.0.0 (iPhone; iOS 16.0)");
-        req.Headers.Add("Accept", "application/json");
-
-        var response = await httpClient.SendAsync(req);
-        Console.WriteLine($"[Debug] search status={(int)response.StatusCode}");
-
-        if (!response.IsSuccessStatusCode)
+        // Probe a few candidate BFF paths to find the correct one
+        var candidates = new[]
         {
+            $"https://bff.591.com.tw/v1/house/rent/search?type={types}&region=1&section={sections}&price={config.MaxPrice}&priceType=1&order=posttime&orderType=desc&firstRow=0&totalRows=30",
+            $"https://bff.591.com.tw/v1/house/rent/list?type={types}&region=1&section={sections}&price={config.MaxPrice}&priceType=1&order=posttime&orderType=desc&firstRow=0&totalRows=30",
+            $"https://bff.591.com.tw/v1/house/search?type={types}&region=1&section={sections}&price={config.MaxPrice}&order=posttime&orderType=desc&firstRow=0&totalRows=30",
+        };
+
+        foreach (var url in candidates)
+        {
+            var req = new HttpRequestMessage(HttpMethod.Get, url);
+            req.Headers.Add("User-Agent", "591/6.0.0 (iPhone; iOS 16.0)");
+            req.Headers.Add("Accept", "application/json");
+
+            var response = await httpClient.SendAsync(req);
             var body = await response.Content.ReadAsStringAsync();
-            Console.WriteLine($"[Debug] search body={body[..Math.Min(body.Length, 300)]}");
-            return new List<SearchItem>();
+            Console.WriteLine($"[Debug] {url.Split('?')[0]} → {(int)response.StatusCode}: {body[..Math.Min(body.Length, 150)]}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await System.Text.Json.JsonSerializer.DeserializeAsync<SearchResponse>(
+                    new System.IO.MemoryStream(System.Text.Encoding.UTF8.GetBytes(body)));
+                if (result?.Status == "1")
+                    return result.Data.Items
+                        .Where(item => double.TryParse(item.Area, out var area) && area >= config.MinSizePing)
+                        .ToList();
+            }
         }
 
-        var result = await response.Content.ReadFromJsonAsync<SearchResponse>();
-        Console.WriteLine($"[Debug] search status field={result?.Status}, records={result?.Data?.Records}");
-
-        if (result?.Status != "1") return new List<SearchItem>();
-
-        return result.Data.Items
-            .Where(item => double.TryParse(item.Area, out var area) && area >= config.MinSizePing)
-            .ToList();
+        return new List<SearchItem>();
     }
 
     public async Task<DetailData?> GetListingDetailAsync(string postId)
