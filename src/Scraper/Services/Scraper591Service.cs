@@ -21,8 +21,14 @@ public class Scraper591Service(HttpClient httpClient)
     public async Task<List<SearchItem>> SearchListingsAsync(ScraperConfig config)
     {
         var initRequest = new HttpRequestMessage(HttpMethod.Get, "https://rent.591.com.tw/");
-        initRequest.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+        initRequest.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36");
+        initRequest.Headers.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+        initRequest.Headers.Add("Accept-Language", "zh-TW,zh;q=0.9,en;q=0.8");
         var initResp = await httpClient.SendAsync(initRequest);
+
+        Console.WriteLine($"[Debug] init status={(int)initResp.StatusCode}");
+        var allSetCookies = initResp.Headers.TryGetValues("Set-Cookie", out var sc) ? string.Join(" | ", sc.Select(c => c.Split(';')[0])) : "(none)";
+        Console.WriteLine($"[Debug] init cookies={allSetCookies}");
 
         // CookieContainer (set up in Program.cs) automatically stores cookies from init response
         var csrfToken = "";
