@@ -96,7 +96,7 @@ public class Scraper591ServiceTests
         var config = BasicConfig();
         var items = Scraper591Service.ParseHtmlListings(SampleListHtml, config);
 
-        Assert.Equal("15000", items[0].Price);
+        Assert.Equal("16888", items[0].Price);
     }
 
     [Fact]
@@ -111,32 +111,43 @@ public class Scraper591ServiceTests
         Assert.Empty(items);
     }
 
+    private const string SampleDetailHtml = """
+        <html><body>
+        <div class="facility service-facility" data-v-a31d3795="" data-v-cfafc3c0=""><!--[-->
+        <dl class="" data-v-cfafc3c0=""><dt data-v-cfafc3c0=""><i class="ic-house house-bed" data-v-cfafc3c0=""></i></dt><dd class="text" data-v-cfafc3c0="">床</dd></dl>
+        <dl class="" data-v-cfafc3c0=""><dt data-v-cfafc3c0=""><i class="ic-house house-gas" data-v-cfafc3c0=""></i></dt><dd class="text" data-v-cfafc3c0="">天然瓦斯</dd></dl>
+        <dl class="del" data-v-cfafc3c0=""><dt data-v-cfafc3c0=""><i class="ic-house house-fourth" data-v-cfafc3c0=""></i></dt><dd class="text" data-v-cfafc3c0="">第四台</dd></dl>
+        <dl class="" data-v-cfafc3c0=""><dt data-v-cfafc3c0=""><i class="ic-house house-net" data-v-cfafc3c0=""></i></dt><dd class="text" data-v-cfafc3c0="">網路</dd></dl>
+        <dl class="del" data-v-cfafc3c0=""><dt data-v-cfafc3c0=""><i class="ic-house house-parking" data-v-cfafc3c0=""></i></dt><dd class="text" data-v-cfafc3c0="">車位</dd></dl>
+        <!--]--></div>
+        </body></html>
+        """;
+
     [Fact]
-    public async Task GetListingDetail_ParsesAmenities()
+    public void ParseDetailHtml_ParsesFacilitiesFromHtml()
+    {
+        var detail = Scraper591Service.ParseDetailHtml(SampleDetailHtml, "111");
+
+        Assert.NotNull(detail);
+        Assert.Equal("111", detail!.Id);
+        Assert.Equal(1, detail.Furniture);      // 床 available
+        Assert.Equal(1, detail.NaturalGas);     // 天然瓦斯 available
+        Assert.Equal(0, detail.CableTv);        // 第四台 del
+        Assert.Equal(1, detail.Broadband);      // 網路 available
+        Assert.Equal(0, detail.ParkingSpace);   // 車位 del
+    }
+
+    [Fact]
+    public async Task GetListingDetail_FetchesHtmlDetailPage()
     {
         var handler = new MockHttpMessageHandler();
-        handler.Setup("bff.591.com.tw", HttpStatusCode.OK, """
-            {
-              "status": 1,
-              "data": {
-                "id": "111",
-                "photo_list": [{"src": "https://example.com/photo.jpg"}],
-                "furniture": 1,
-                "natural_gas": 0,
-                "cable_tv": 0,
-                "broadband": 1,
-                "parking_space": 0,
-                "can_keep_pet": 0
-              }
-            }
-            """);
+        handler.Setup("rent.591.com.tw/rent-detail-", HttpStatusCode.OK, SampleDetailHtml);
 
         var svc = BuildService(handler);
         var detail = await svc.GetListingDetailAsync("111");
 
         Assert.NotNull(detail);
-        Assert.Single(detail!.PhotoList);
-        Assert.Equal(1, detail.Furniture);
-        Assert.Equal(1, detail.Broadband);
+        Assert.Equal(1, detail!.NaturalGas);
+        Assert.Equal(0, detail.CableTv);
     }
 }

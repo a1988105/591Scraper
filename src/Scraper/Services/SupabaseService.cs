@@ -85,6 +85,41 @@ public class SupabaseService(HttpClient httpClient, string supabaseUrl, string s
         response.EnsureSuccessStatusCode();
     }
 
+    public async Task<List<string>> GetAllListingIdsAsync()
+    {
+        var url = $"{supabaseUrl}/rest/v1/listings?select=id&limit=1000";
+
+        using var req = new HttpRequestMessage(HttpMethod.Get, url);
+        AddHeaders(req);
+        var response = await httpClient.SendAsync(req);
+        response.EnsureSuccessStatusCode();
+
+        var items = await response.Content.ReadFromJsonAsync<List<IdOnly>>() ?? new();
+        return items.Select(x => x.Id).ToList();
+    }
+
+    public async Task UpdateFacilitiesAsync(string id, DetailData detail)
+    {
+        var url = $"{supabaseUrl}/rest/v1/listings?id=eq.{id}";
+        var body = JsonSerializer.Serialize(new
+        {
+            has_furniture = detail.Furniture == 1,
+            has_natural_gas = detail.NaturalGas == 1,
+            has_cable_tv = detail.CableTv == 1,
+            has_internet = detail.Broadband == 1,
+            has_parking = detail.ParkingSpace == 1,
+            pet_allowed = detail.CanKeepPet == 1
+        });
+
+        using var req = new HttpRequestMessage(HttpMethod.Patch, url);
+        AddHeaders(req);
+        req.Headers.Add("Prefer", "return=minimal");
+        req.Content = new StringContent(body, Encoding.UTF8, "application/json");
+
+        var response = await httpClient.SendAsync(req);
+        response.EnsureSuccessStatusCode();
+    }
+
     private class IdOnly
     {
         [System.Text.Json.Serialization.JsonPropertyName("id")]

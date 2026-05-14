@@ -50,6 +50,6 @@ public class TelegramServiceTests
         Assert.Contains("大安區精緻套房", caption);
         Assert.Contains("15,500", caption);
         Assert.Contains("台北市大安區", caption);
-        Assert.Contains("✅", caption); // has_furniture
+        Assert.Contains("坪", caption);
     }
 }

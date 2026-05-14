@@ -36,6 +36,37 @@ var geocoding = new GeocodingService(httpFactory.CreateClient());
 var supabase = new SupabaseService(httpFactory.CreateClient(), supabaseUrl, supabaseKey);
 var telegram = new TelegramService(httpFactory.CreateClient());
 
+// ── Backfill details mode ────────────────────────────────────────
+if (args.Contains("--backfill-details"))
+{
+    Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Backfill details mode: re-fetching facility data from HTML");
+    var allIds = await supabase.GetAllListingIdsAsync();
+    Console.WriteLine($"Found {allIds.Count} listings to backfill");
+
+    var updated = 0;
+    var failed = 0;
+    for (var i = 0; i < allIds.Count; i++)
+    {
+        var id = allIds[i];
+        var detail = await scraper591.GetListingDetailAsync(id);
+        if (detail is null)
+        {
+            Console.WriteLine($"  [{i + 1}/{allIds.Count}] [skip] {id} — detail fetch failed");
+            failed++;
+        }
+        else
+        {
+            await supabase.UpdateFacilitiesAsync(id, detail);
+            Console.WriteLine($"  [{i + 1}/{allIds.Count}] [ok]   {id} — furniture={detail.Furniture} gas={detail.NaturalGas} net={detail.Broadband}");
+            updated++;
+        }
+        await Task.Delay(200);
+    }
+
+    Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Done. Updated {updated}, skipped {failed}/{allIds.Count}");
+    return;
+}
+
 // ── Backfill mode ────────────────────────────────────────────────
 if (args.Contains("--backfill"))
 {

@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http.Json;
 using System.Text.RegularExpressions;
 using Scraper.Config;
 using Scraper.Models;
@@ -223,16 +222,59 @@ public class Scraper591Service(HttpClient httpClient)
 
     public async Task<DetailData?> GetListingDetailAsync(string postId)
     {
-        var url = $"https://bff.591.com.tw/v1/house/rent/detail?id={postId}";
+        var url = $"https://rent.591.com.tw/rent-detail-{postId}.html";
         var req = new HttpRequestMessage(HttpMethod.Get, url);
-        req.Headers.Add("User-Agent", "591/6.0.0 (iPhone; iOS 16.0)");
-        req.Headers.Add("Accept", "application/json");
+        req.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36");
+        req.Headers.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
 
         var response = await httpClient.SendAsync(req);
         if (!response.IsSuccessStatusCode) return null;
 
-        var result = await response.Content.ReadFromJsonAsync<DetailResponse>();
-        return result?.Status == 1 ? result.Data : null;
+        var html = await response.Content.ReadAsStringAsync();
+        return ParseDetailHtml(html, postId);
+    }
+
+    internal static DetailData? ParseDetailHtml(string html, string postId)
+    {
+        // Find the facility section
+        var sectionMatch = Regex.Match(
+            html,
+            @"class=""facility service-facility""[^>]*>(.*?)</div>",
+            RegexOptions.Singleline);
+
+        if (!sectionMatch.Success) return null;
+
+        var section = sectionMatch.Groups[1].Value;
+
+        // Parse each <dl> and check if it has class="del" (unavailable)
+        var dlMatches = Regex.Matches(
+            section,
+            @"<dl\s*(class=""(?<cls>[^""]*)"")?[^>]*>.*?<dd[^>]*>(?<label>[^<]+)</dd>",
+            RegexOptions.Singleline);
+
+        var available = new HashSet<string>();
+        foreach (Match dl in dlMatches)
+        {
+            var cls = dl.Groups["cls"].Value;
+            if (cls.Contains("del")) continue;
+            var label = WebUtility.HtmlDecode(dl.Groups["label"].Value).Trim();
+            available.Add(label);
+        }
+
+        static int Has(HashSet<string> set, params string[] labels)
+            => labels.Any(set.Contains) ? 1 : 0;
+
+        return new DetailData
+        {
+            Id = postId,
+            Furniture = Has(available, "床", "衣櫃", "沙發", "桌椅", "冰箱", "洗衣機"),
+            NaturalGas = Has(available, "天然瓦斯"),
+            CableTv = Has(available, "第四台"),
+            Broadband = Has(available, "網路", "寬頻"),
+            ParkingSpace = Has(available, "車位"),
+            CanKeepPet = Has(available, "可養寵物", "寵物"),
+            PhotoList = []
+        };
     }
 
     private static string ExtractPrice(string block)
