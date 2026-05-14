@@ -12,6 +12,16 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 .tab.active { background: #6366f1; border-color: #6366f1; color: white; }
 .count-badge { margin-left: auto; font-size: 0.83em; color: #64748b; }
 
+.tooltip-toggle { display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
+.tooltip-toggle input { display: none; }
+.toggle-track { position: relative; width: 32px; height: 18px; background: #334155;
+  border-radius: 9px; transition: background 0.2s; flex-shrink: 0; }
+.tooltip-toggle input:checked + .toggle-track { background: #6366f1; }
+.toggle-thumb { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px;
+  background: #fff; border-radius: 50%; transition: transform 0.2s; }
+.tooltip-toggle input:checked + .toggle-track .toggle-thumb { transform: translateX(14px); }
+.toggle-label { font-size: 0.8em; color: #94a3b8; }
+
 .layout { display: flex; flex: 1; overflow: hidden; }
 #map { flex: 1; }
 

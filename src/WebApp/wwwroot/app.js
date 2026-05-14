@@ -1,5 +1,8 @@
 let map;
 let markers = [];
+let markerMap = new Map();   // listingId → marker
+let activeMarkerId = null;
+let tooltipsVisible = true;
 let currentListings = [];
 let currentFavorites = [];
 let favoriteIds = new Set();
@@ -76,15 +79,18 @@ window.applyFilters = async function () {
 };
 
 // ── Render markers ───────────────────────────────────────────────
-function makeCircleIcon(color) {
+function makeCircleIcon(color, highlighted = false) {
+  const size = highlighted ? 26 : 18;
+  const border = highlighted ? '3px solid #fbbf24' : '2px solid #fff';
+  const shadow = highlighted
+    ? '0 0 0 3px rgba(251,191,36,0.4), 0 2px 6px rgba(0,0,0,0.6)'
+    : '0 1px 4px rgba(0,0,0,0.5)';
   return L.divIcon({
     className: '',
-    html: `<div style="
-      width:18px;height:18px;border-radius:50%;
-      background:${color};border:2px solid #fff;
-      box-shadow:0 1px 4px rgba(0,0,0,0.5)"></div>`,
-    iconSize: [18, 18],
-    iconAnchor: [9, 9]
+    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;
+      background:${color};border:${border};box-shadow:${shadow}"></div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2]
   });
 }
 
@@ -100,17 +106,20 @@ function renderMarkers(listings) {
 
     marker.bindTooltip(
       `<b>${listing.title}</b><br>$${listing.price.toLocaleString()} / 月`,
-      { direction: 'top', offset: [0, -12], permanent: true, opacity: 0.9 }
+      { direction: 'top', offset: [0, -12], permanent: true, opacity: tooltipsVisible ? 0.9 : 0 }
     );
     const fav = currentFavorites.find(f => f.listing_id === listing.id);
     marker.on('click', () => openModal(listing, fav));
     markers.push(marker);
+    markerMap.set(listing.id, { marker, listing });
   });
 }
 
 function clearMarkers() {
   markers.forEach(m => m.remove());
   markers = [];
+  markerMap.clear();
+  activeMarkerId = null;
 }
 
 // ── Render sidebar list ──────────────────────────────────────────
@@ -134,9 +143,9 @@ function renderList(listings, favs) {
       <div class="card-status">${fav ? fav.status : listing.room_type} · ${listing.size_ping} 坪</div>
     `;
     card.addEventListener('click', () => {
-      if (listing.lat && listing.lng) {
+      highlightMarker(listing);
+      if (listing.lat && listing.lng)
         map.flyTo([listing.lat, listing.lng], 16, { duration: 0.8 });
-      }
     });
     container.appendChild(card);
   });
@@ -210,6 +219,29 @@ window.saveStatus = async function (status) {
 
 window.saveNote = async function (note) {
   await apiFetch(`/api/favorites/${currentListingId}`, 'PATCH', { note });
+};
+
+// ── Marker highlight ─────────────────────────────────────────────
+function highlightMarker(listing) {
+  if (activeMarkerId) {
+    const prev = markerMap.get(activeMarkerId);
+    if (prev) {
+      const isFav = favoriteIds.has(prev.listing.id);
+      prev.marker.setIcon(makeCircleIcon(isFav ? '#10b981' : '#6366f1', false));
+    }
+  }
+  activeMarkerId = listing.id;
+  const entry = markerMap.get(listing.id);
+  if (entry) {
+    const isFav = favoriteIds.has(listing.id);
+    entry.marker.setIcon(makeCircleIcon(isFav ? '#10b981' : '#6366f1', true));
+  }
+}
+
+// ── Tooltip toggle ───────────────────────────────────────────────
+window.toggleTooltips = function (visible) {
+  tooltipsVisible = visible;
+  markers.forEach(m => m.getTooltip()?.setOpacity(visible ? 0.9 : 0));
 };
 
 // ── API helper ───────────────────────────────────────────────────
