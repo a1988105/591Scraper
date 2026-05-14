@@ -30,6 +30,7 @@ public class Scraper591Service(HttpClient httpClient, System.Net.CookieContainer
 
         // Parse CSRF token from <meta name="csrf-token" content="..."> in HTML
         var html = await initResp.Content.ReadAsStringAsync();
+        Console.WriteLine($"[Debug] html preview={html[..Math.Min(html.Length, 200)]}");
         var csrfToken = "";
         var metaMatch = System.Text.RegularExpressions.Regex.Match(
             html, @"<meta\s+name=""csrf-token""\s+content=""([^""]+)""");
