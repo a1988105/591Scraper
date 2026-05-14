@@ -4,7 +4,7 @@ using Scraper.Models;
 
 namespace Scraper.Services;
 
-public class Scraper591Service(HttpClient httpClient)
+public class Scraper591Service(HttpClient httpClient, System.Net.CookieContainer? cookieContainer = null)
 {
     private static readonly Dictionary<string, string> DistrictCodes = new()
     {
@@ -27,12 +27,13 @@ public class Scraper591Service(HttpClient httpClient)
         var initResp = await httpClient.SendAsync(initRequest);
 
         Console.WriteLine($"[Debug] init status={(int)initResp.StatusCode}");
-        var allSetCookies = initResp.Headers.TryGetValues("Set-Cookie", out var sc) ? string.Join(" | ", sc.Select(c => c.Split(';')[0])) : "(none)";
-        Console.WriteLine($"[Debug] init cookies={allSetCookies}");
 
-        // CookieContainer (set up in Program.cs) automatically stores cookies from init response
-        var csrfToken = "";
-        if (initResp.Headers.TryGetValues("Set-Cookie", out var setCookies))
+        // CookieContainer intercepts Set-Cookie headers — read T591_TOKEN directly from it
+        var csrfToken = cookieContainer?
+            .GetCookies(new Uri("https://rent.591.com.tw/"))["T591_TOKEN"]?.Value ?? "";
+
+        // Fallback: try response headers (for unit tests using MockHttpMessageHandler)
+        if (string.IsNullOrEmpty(csrfToken) && initResp.Headers.TryGetValues("Set-Cookie", out var setCookies))
         {
             csrfToken = setCookies
                 .Select(c => c.Split(';')[0].Trim())
@@ -40,6 +41,7 @@ public class Scraper591Service(HttpClient httpClient)
                 .Select(c => c["T591_TOKEN=".Length..])
                 .FirstOrDefault() ?? "";
         }
+
         Console.WriteLine($"[Debug] csrfToken={csrfToken}");
 
         var sections = string.Join(",",
