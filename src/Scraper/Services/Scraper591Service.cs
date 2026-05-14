@@ -93,6 +93,7 @@ public class Scraper591Service(HttpClient httpClient)
         for (var page = 1; ; page++)
         {
             var url = BuildSearchUrl(config, page);
+            Console.WriteLine($"Fetching page {page}: {url}");
 
             var req = new HttpRequestMessage(HttpMethod.Get, url);
             req.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36");
@@ -101,13 +102,22 @@ public class Scraper591Service(HttpClient httpClient)
 
             var response = await httpClient.SendAsync(req);
             if (!response.IsSuccessStatusCode)
+            {
+                Console.WriteLine($"Page {page} request failed: {(int)response.StatusCode} {response.ReasonPhrase}");
                 break;
+            }
 
             var html = await response.Content.ReadAsStringAsync();
+            var rawItemCount = CountListingMatches(html);
+            Console.WriteLine(
+                $"Page {page} response: status={(int)response.StatusCode}, htmlLength={html.Length}, title='{ExtractPageTitle(html)}', rawItemMatches={rawItemCount}");
             var pageItems = ParseHtmlListings(html, config);
             Console.WriteLine($"Page {page} parsed items: {pageItems.Count}");
             if (pageItems.Count == 0)
+            {
+                Console.WriteLine($"Page {page} preview: {BuildHtmlPreview(html)}");
                 break;
+            }
 
             var addedThisPage = 0;
             foreach (var item in pageItems)
@@ -184,6 +194,31 @@ public class Scraper591Service(HttpClient httpClient)
         }
 
         return items;
+    }
+
+    internal static string ExtractPageTitle(string html)
+    {
+        var titleMatch = Regex.Match(html, @"<title[^>]*>(.*?)</title>", RegexOptions.Singleline | RegexOptions.IgnoreCase);
+        if (!titleMatch.Success)
+            return "";
+
+        var title = Regex.Replace(titleMatch.Groups[1].Value, "<[^>]+>", " ");
+        title = WebUtility.HtmlDecode(title);
+        return Regex.Replace(title, @"\s+", " ").Trim();
+    }
+
+    internal static int CountListingMatches(string html)
+        => Regex.Matches(html, @"class=""item""\s+data-id=""(\d+)""").Count;
+
+    internal static string BuildHtmlPreview(string html)
+    {
+        if (string.IsNullOrWhiteSpace(html))
+            return "";
+
+        var preview = Regex.Replace(html, "<[^>]+>", " ");
+        preview = WebUtility.HtmlDecode(preview);
+        preview = Regex.Replace(preview, @"\s+", " ").Trim();
+        return preview.Length <= 200 ? preview : preview[..200];
     }
 
     public async Task<DetailData?> GetListingDetailAsync(string postId)

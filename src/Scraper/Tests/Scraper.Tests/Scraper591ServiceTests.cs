@@ -259,4 +259,35 @@ public class Scraper591ServiceTests
         Assert.NotEmpty(items);
         Assert.Contains(items, item => item.Price != "0");
     }
+
+    [Fact]
+    public void ExtractPageTitle_ReturnsHtmlTitle()
+    {
+        const string html = """
+            <html>
+              <head>
+                <title>Access denied</title>
+              </head>
+              <body></body>
+            </html>
+            """;
+
+        var title = Scraper591Service.ExtractPageTitle(html);
+
+        Assert.Equal("Access denied", title);
+    }
+
+    [Fact]
+    public void CountListingMatches_ReturnsNumberOfListItems()
+    {
+        const string html = """
+            <div class="item" data-id="1"></div>
+            <div class="item" data-id="2"></div>
+            <div class="item" data-id="3"></div>
+            """;
+
+        var count = Scraper591Service.CountListingMatches(html);
+
+        Assert.Equal(3, count);
+    }
 }
