@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>591 租屋追蹤</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <nav class="topnav">
+    <span class="logo">591 租屋追蹤</span>
+    <div class="nav-tabs">
+      <button class="tab active" data-view="favorites" onclick="switchView('favorites')">⭐ 收藏</button>
+      <button class="tab" data-view="all" onclick="switchView('all')">🔍 所有物件</button>
+    </div>
+    <span class="count-badge" id="countBadge">載入中...</span>
+  </nav>
+
+  <div class="layout">
+    <div id="map"></div>
+
+    <aside class="sidebar">
+      <div class="panel" id="filterPanel">
+        <h4>篩選條件</h4>
+        <label><input type="checkbox" id="filterFurniture"> 有家具</label>
+        <label><input type="checkbox" id="filterInternet"> 有網路</label>
+        <label><input type="checkbox" id="filterGas"> 天然氣</label>
+        <label><input type="checkbox" id="filterParking"> 停車位</label>
+        <label><input type="checkbox" id="filterPet"> 可養寵物</label>
+        <div class="price-filter">
+          <label>租金上限
+            <input type="number" id="filterMaxPrice" placeholder="不限" step="1000">
+          </label>
+        </div>
+        <button class="btn-filter" onclick="applyFilters()">套用篩選</button>
+      </div>
+
+      <div class="panel" id="listPanel">
+        <h4 id="listTitle">收藏物件</h4>
+        <div id="listContainer"></div>
+      </div>
+    </aside>
+  </div>
+
+  <div id="infoModal" class="modal hidden">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal()">✕</button>
+      <img id="modalPhoto" src="" alt="物件照片" class="modal-photo hidden">
+      <div class="modal-body">
+        <h3 id="modalTitle"></h3>
+        <div class="modal-price" id="modalPrice"></div>
+        <div class="modal-address" id="modalAddress"></div>
+        <div class="modal-meta" id="modalMeta"></div>
+        <div class="modal-amenities" id="modalAmenities"></div>
+        <div class="modal-status-row" id="modalStatusRow"></div>
+        <div class="modal-note-row" id="modalNoteRow"></div>
+        <div class="modal-actions" id="modalActions"></div>
+        <a id="modalLink" href="#" target="_blank" class="btn-591">🔗 查看 591 原始頁</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    fetch('/api/maps-key')
+      .then(r => r.json())
+      .then(data => {
+        const script = document.createElement('script');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${data.key}&callback=initMap&language=zh-TW`;
+        script.async = true;
+        document.head.appendChild(script);
+      });
+  </script>
+  <script src="/app.js"></script>
+</body>
+</html>

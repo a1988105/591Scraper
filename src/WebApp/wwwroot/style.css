@@ -1,0 +1,76 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #0f172a; color: #e2e8f0; height: 100vh; display: flex; flex-direction: column; }
+
+.topnav { display: flex; align-items: center; gap: 16px; padding: 10px 20px;
+  background: #1e293b; border-bottom: 1px solid #334155; height: 52px; flex-shrink: 0; }
+.logo { font-weight: 700; color: #6366f1; font-size: 1.1em; }
+.nav-tabs { display: flex; gap: 4px; }
+.tab { background: transparent; border: 1px solid #334155; color: #94a3b8;
+  padding: 5px 14px; border-radius: 6px; cursor: pointer; font-size: 0.85em; }
+.tab.active { background: #6366f1; border-color: #6366f1; color: white; }
+.count-badge { margin-left: auto; font-size: 0.83em; color: #64748b; }
+
+.layout { display: flex; flex: 1; overflow: hidden; }
+#map { flex: 1; }
+
+.sidebar { width: 280px; background: #1e293b; border-left: 1px solid #334155;
+  display: flex; flex-direction: column; overflow-y: auto; }
+
+.panel { padding: 14px; border-bottom: 1px solid #334155; }
+.panel h4 { font-size: 0.82em; text-transform: uppercase; letter-spacing: 0.05em;
+  color: #64748b; margin-bottom: 10px; }
+
+.panel label { display: flex; align-items: center; gap: 8px; font-size: 0.88em;
+  color: #94a3b8; margin-bottom: 6px; cursor: pointer; }
+.panel input[type="checkbox"] { accent-color: #6366f1; }
+.price-filter { margin-top: 8px; }
+.price-filter label { flex-direction: column; align-items: flex-start; gap: 4px; }
+.price-filter input { width: 100%; background: #0f172a; border: 1px solid #334155;
+  border-radius: 4px; padding: 5px 8px; color: #e2e8f0; font-size: 0.88em; }
+.btn-filter { width: 100%; margin-top: 10px; padding: 7px; background: #6366f1;
+  border: none; border-radius: 6px; color: white; cursor: pointer; font-size: 0.88em; }
+.btn-filter:hover { background: #4f46e5; }
+
+.listing-card { background: #0f172a; border-radius: 6px; padding: 10px 12px;
+  margin-bottom: 6px; cursor: pointer; border-left: 3px solid transparent;
+  transition: border-color 0.15s; }
+.listing-card:hover { border-left-color: #6366f1; }
+.listing-card.active { border-left-color: #10b981; }
+.card-title { font-size: 0.88em; font-weight: 600; margin-bottom: 3px; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; }
+.card-price { color: #10b981; font-size: 0.85em; font-weight: 600; }
+.card-status { font-size: 0.75em; color: #64748b; margin-top: 2px; }
+
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+  display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.modal.hidden { display: none; }
+.modal-content { background: #1e293b; border-radius: 12px; max-width: 420px; width: 90%;
+  max-height: 85vh; overflow-y: auto; position: relative; }
+.modal-close { position: absolute; top: 10px; right: 14px; background: transparent;
+  border: none; color: #94a3b8; font-size: 1.2em; cursor: pointer; z-index: 1; }
+.modal-photo { width: 100%; height: 200px; object-fit: cover;
+  border-radius: 12px 12px 0 0; }
+.modal-photo.hidden { display: none; }
+.modal-body { padding: 16px; }
+.modal-body h3 { font-size: 1em; font-weight: 700; margin-bottom: 8px; }
+.modal-price { color: #10b981; font-weight: 700; font-size: 1.1em; margin-bottom: 4px; }
+.modal-address { color: #94a3b8; font-size: 0.85em; margin-bottom: 4px; }
+.modal-meta { color: #64748b; font-size: 0.82em; margin-bottom: 10px; }
+.modal-amenities { font-size: 0.85em; line-height: 2; margin-bottom: 10px; }
+.modal-status-row, .modal-note-row { margin-bottom: 8px; }
+.modal-status-row select, .modal-note-row textarea {
+  width: 100%; background: #0f172a; border: 1px solid #334155; border-radius: 4px;
+  padding: 6px 8px; color: #e2e8f0; font-size: 0.85em; }
+.modal-note-row textarea { resize: vertical; min-height: 60px; }
+.modal-actions { display: flex; gap: 8px; margin-bottom: 10px; }
+.btn-favorite { flex: 1; padding: 7px; border-radius: 6px; border: none;
+  cursor: pointer; font-size: 0.85em; font-weight: 600; }
+.btn-add-fav { background: #10b981; color: white; }
+.btn-remove-fav { background: #ef4444; color: white; }
+.btn-save { background: #6366f1; color: white; flex: 1; padding: 7px;
+  border-radius: 6px; border: none; cursor: pointer; font-size: 0.85em; }
+.btn-591 { display: block; text-align: center; padding: 8px; background: #0f172a;
+  border: 1px solid #334155; border-radius: 6px; color: #6ab3f0; text-decoration: none;
+  font-size: 0.85em; }
