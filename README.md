@@ -196,6 +196,98 @@ railway up
 
 ---
 
+## 排程執行 Scraper（macOS）
+
+在 macOS 上透過 `launchd` 設定 Scraper 定期自動執行，登出後依然會繼續跑。
+
+### 1. 編譯並發佈執行檔
+
+```bash
+cd src/Scraper
+dotnet publish -c Release -o ../../publish/scraper
+```
+
+發佈後 `publish/scraper/` 目錄內會包含執行檔與 `.env`、`config.json`。
+
+### 2. 建立 LaunchDaemon plist
+
+建立 `/Library/LaunchDaemons/com.erictsai.591scraper.plist`（需替換 `erictsai` 為你的使用者名稱）：
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.erictsai.591scraper</string>
+
+    <key>UserName</key>
+    <string>erictsai</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/erictsai/Desktop/side project/591Scraper/publish/scraper/Scraper</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/erictsai/Desktop/side project/591Scraper/publish/scraper</string>
+
+    <key>StartInterval</key>
+    <integer>7200</integer>
+
+    <key>StandardOutPath</key>
+    <string>/Users/erictsai/Library/Logs/591Scraper/scraper.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/erictsai/Library/Logs/591Scraper/scraper-error.log</string>
+
+    <key>RunAtLoad</key>
+    <false/>
+</dict>
+</plist>
+```
+
+`StartInterval` 單位為秒，`7200` = 每 2 小時。
+
+### 3. 建立 log 目錄並載入排程
+
+```bash
+mkdir -p ~/Library/Logs/591Scraper
+sudo cp /path/to/com.erictsai.591scraper.plist /Library/LaunchDaemons/
+sudo launchctl load /Library/LaunchDaemons/com.erictsai.591scraper.plist
+```
+
+確認已載入：
+
+```bash
+sudo launchctl list | grep 591scraper
+# 預期輸出：-  0  com.erictsai.591scraper
+```
+
+### 4. 常用指令
+
+```bash
+# 手動立刻跑一次
+sudo launchctl start com.erictsai.591scraper
+
+# 停用排程（重開機後也不會跑）
+sudo launchctl unload /Library/LaunchDaemons/com.erictsai.591scraper.plist
+
+# 重新啟用排程
+sudo launchctl load /Library/LaunchDaemons/com.erictsai.591scraper.plist
+
+# 完全移除
+sudo launchctl unload /Library/LaunchDaemons/com.erictsai.591scraper.plist
+sudo rm /Library/LaunchDaemons/com.erictsai.591scraper.plist
+
+# 查看 log
+tail -f ~/Library/Logs/591Scraper/scraper.log
+```
+
+> **注意**：電腦睡眠時不會執行，喚醒後到下一個排程時間點才會跑。`RunAtLoad` 設為 `false` 表示載入時不立刻執行。
+
+---
+
 ## WebApp API
 
 | 方法 | 路徑 | 說明 |
