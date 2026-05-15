@@ -12,6 +12,22 @@ public class GeocodingService(HttpClient httpClient)
     {
         if (string.IsNullOrWhiteSpace(address)) return null;
 
+        var cleaned = NormalizeAddress(address);
+
+        var result = await CallNominatimAsync(cleaned);
+        if (result.HasValue) return result;
+
+        foreach (var fallback in ExtractFallbackLevels(cleaned))
+        {
+            result = await CallNominatimAsync(fallback);
+            if (result.HasValue) return result;
+        }
+
+        return null;
+    }
+
+    private async Task<(double Lat, double Lng)?> CallNominatimAsync(string address)
+    {
         var encoded = Uri.EscapeDataString(address.Trim());
         var url = $"https://nominatim.openstreetmap.org/search?q={encoded}&format=json&limit=1&accept-language=zh-TW";
 

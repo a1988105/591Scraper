@@ -155,4 +155,53 @@ public class GeocodingServiceTests
 
         Assert.Contains("台北市大安區和平東路一段", levels);
     }
+
+    // ── GetCoordinatesAsync 整合測試 ─────────────────────────────────
+
+    [Fact]
+    public async Task GetCoordinates_NoisyAddress_CleansAndReturnsCoords()
+    {
+        // Noisy address (3F suffix) should be cleaned before geocoding — first call succeeds
+        var handler = new MockHttpMessageHandler();
+        handler.Setup("nominatim.openstreetmap.org", HttpStatusCode.OK, """
+            [{"lat":"25.033","lon":"121.565","display_name":"台北市大安區復興南路一段"}]
+            """);
+
+        var svc = new GeocodingService(new HttpClient(handler));
+        var result = await svc.GetCoordinatesAsync("台北市大安區復興南路一段100號3F");
+
+        Assert.NotNull(result);
+        Assert.Equal(25.033, result!.Value.Lat, precision: 3);
+    }
+
+    [Fact]
+    public async Task GetCoordinates_FallsBackToRoadLevel_WhenFullAddressFails()
+    {
+        // Cleaned address returns no results → fall back to road-level → succeeds
+        var handler = new SequentialMockHandler();
+        handler.Enqueue(HttpStatusCode.OK, "[]");  // cleaned address: no results
+        handler.Enqueue(HttpStatusCode.OK, """
+            [{"lat":"25.011","lon":"121.517","display_name":"台北市永和區中正路"}]
+            """);  // road-level fallback: found
+
+        var svc = new GeocodingService(new HttpClient(handler));
+        var result = await svc.GetCoordinatesAsync("台北市永和區中正路100號");
+
+        Assert.NotNull(result);
+        Assert.Equal(25.011, result!.Value.Lat, precision: 3);
+    }
+
+    [Fact]
+    public async Task GetCoordinates_AllLevelsFail_ReturnsNull()
+    {
+        // Every geocoding attempt returns empty
+        var handler = new SequentialMockHandler();
+        handler.Enqueue(HttpStatusCode.OK, "[]");  // cleaned address
+        handler.Enqueue(HttpStatusCode.OK, "[]");  // road-level fallback
+
+        var svc = new GeocodingService(new HttpClient(handler));
+        var result = await svc.GetCoordinatesAsync("台北市永和區中正路100號");
+
+        Assert.Null(result);
+    }
 }
