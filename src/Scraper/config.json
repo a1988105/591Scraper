@@ -7,6 +7,6 @@
   "MaxPrice": 30000,
   "MinSizePing": 2,
   "RequireFurniture": false,
-  "RequireInternet": true,
+  "RequireInternet": false,
   "NotifyHour": 10
 }
