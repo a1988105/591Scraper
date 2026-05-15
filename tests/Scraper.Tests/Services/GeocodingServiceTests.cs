@@ -83,6 +83,13 @@ public class GeocodingServiceTests
     public void NormalizeAddress_AddsMissingCityPrefix(string input, string expected)
         => Assert.Equal(expected, GeocodingService.NormalizeAddress(input));
 
+    [Theory]
+    [InlineData("台北市大安區復興南路一段100號精緻套房", "台北市大安區復興南路一段100號")]
+    [InlineData("台北市大安區復興南路一段100號優質雅房", "台北市大安區復興南路一段100號")]
+    [InlineData("台北市大安區復興南路一段100號整層住家", "台北市大安區復興南路一段100號")]
+    public void NormalizeAddress_StripsTrailingDescriptiveWords(string input, string expected)
+        => Assert.Equal(expected, GeocodingService.NormalizeAddress(input));
+
     [Fact]
     public void NormalizeAddress_CleanAddress_IsUnchanged()
         => Assert.Equal("台北市大安區復興南路一段100號",

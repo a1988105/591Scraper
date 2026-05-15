@@ -43,7 +43,7 @@ public class GeocodingService(HttpClient httpClient)
         if (slash >= 0) address = address[..slash];
 
         // Remove trailing floor descriptions: 3F, 3f, 3樓, B1F, B1
-        address = Regex.Replace(address, @"\s*[Bb]?\d+[Ff樓]$", "");
+        address = Regex.Replace(address, @"\s*([Bb]\d+[Ff]?|\d+[Ff樓])$", "");
 
         // Remove 近XXX landmark descriptions
         address = Regex.Replace(address, @"近\S+", "");
