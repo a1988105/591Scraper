@@ -76,6 +76,34 @@ public class GeocodingService(HttpClient httpClient)
         ["萬里區"] = "新北市", ["烏來區"] = "新北市",
     };
 
+    internal static IEnumerable<string> ExtractFallbackLevels(string address)
+    {
+        var match = Regex.Match(address,
+            @"^(?<city>台北市|新北市|桃園市|台中市|台南市|高雄市|基隆市|新竹市|嘉義市|" +
+            @"宜蘭縣|花蓮縣|台東縣|屏東縣|南投縣|雲林縣|嘉義縣|彰化縣|苗栗縣|新竹縣|" +
+            @"連江縣|金門縣|澎湖縣|臺北市|臺中市|臺南市|臺東縣)?" +
+            @"(?<district>[^\s]+?[區鄉鎮市])" +
+            @"(?<road>[^\s]+?(?:路|街|大道|巷|弄))" +
+            @"(?<section>第?[一二三四五六七八九十\d]+段)?" +
+            @"(?<number>\d+號)?");
+
+        if (!match.Success) yield break;
+
+        var city     = match.Groups["city"].Value;
+        var district = match.Groups["district"].Value;
+        var road     = match.Groups["road"].Value;
+        var section  = match.Groups["section"].Value;
+        var number   = match.Groups["number"].Value;
+
+        // Level 2: structured rebuild — only emit if different from input
+        var level2 = city + district + road + section + number;
+        if (level2 != address) yield return level2;
+
+        // Level 3: road-level (drop number) — only emit if there was a number to drop
+        if (!string.IsNullOrEmpty(number))
+            yield return city + district + road + section;
+    }
+
     private static string AddCityPrefix(string address)
     {
         if (Regex.IsMatch(address,

@@ -94,4 +94,54 @@ public class GeocodingServiceTests
     public void NormalizeAddress_CleanAddress_IsUnchanged()
         => Assert.Equal("台北市大安區復興南路一段100號",
             GeocodingService.NormalizeAddress("台北市大安區復興南路一段100號"));
+
+    // ── ExtractFallbackLevels ────────────────────────────────────────
+
+    [Fact]
+    public void ExtractFallbackLevels_FullAddress_ReturnsRoadLevel()
+    {
+        var levels = GeocodingService.ExtractFallbackLevels(
+            "台北市大安區復興南路一段100號").ToList();
+
+        Assert.Contains("台北市大安區復興南路一段", levels);
+    }
+
+    [Fact]
+    public void ExtractFallbackLevels_WithSection_KeepsSectionInRoadLevel()
+    {
+        var levels = GeocodingService.ExtractFallbackLevels(
+            "台北市永和區中正路二段50號").ToList();
+
+        Assert.Contains("台北市永和區中正路二段", levels);
+    }
+
+    [Fact]
+    public void ExtractFallbackLevels_AlreadyRoadLevel_ReturnsEmpty()
+    {
+        var levels = GeocodingService.ExtractFallbackLevels(
+            "台北市大安區復興南路一段").ToList();
+
+        Assert.Empty(levels);
+    }
+
+    [Fact]
+    public void ExtractFallbackLevels_UnparsableAddress_ReturnsEmpty()
+    {
+        var levels = GeocodingService.ExtractFallbackLevels("不明地址xyz123").ToList();
+
+        Assert.Empty(levels);
+    }
+
+    [Fact]
+    public void ExtractFallbackLevels_Level2DiffersFromInput_IncludesLevel2()
+    {
+        // If NormalizeAddress couldn't clean everything, Level 2 is the structured rebuild
+        var levels = GeocodingService.ExtractFallbackLevels(
+            "台北市大安區復興南路一段100號精緻套房").ToList();
+
+        // Level 2: parsed rebuild without trailing noise
+        Assert.Contains("台北市大安區復興南路一段100號", levels);
+        // Level 3: road-level
+        Assert.Contains("台北市大安區復興南路一段", levels);
+    }
 }
