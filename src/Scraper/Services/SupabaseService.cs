@@ -108,7 +108,16 @@ public class SupabaseService(HttpClient httpClient, string supabaseUrl, string s
             has_cable_tv = detail.CableTv == 1,
             has_internet = detail.Broadband == 1,
             has_parking = detail.ParkingSpace == 1,
-            pet_allowed = detail.CanKeepPet == 1
+            pet_allowed = detail.CanKeepPet == 1,
+            has_fridge = detail.Fridge == 1,
+            has_washing_machine = detail.WashingMachine == 1,
+            has_water_heater = detail.WaterHeater == 1,
+            has_air_con = detail.AirCon == 1,
+            has_tv = detail.Tv == 1,
+            has_bed = detail.Bed == 1,
+            has_wardrobe = detail.Wardrobe == 1,
+            has_elevator = detail.Elevator == 1,
+            has_balcony = detail.Balcony == 1
         });
 
         using var req = new HttpRequestMessage(HttpMethod.Patch, url);
@@ -118,6 +127,25 @@ public class SupabaseService(HttpClient httpClient, string supabaseUrl, string s
 
         var response = await httpClient.SendAsync(req);
         response.EnsureSuccessStatusCode();
+    }
+
+    public async Task DeleteExpiredListingsAsync(IEnumerable<string> ids)
+    {
+        var idList = string.Join(",", ids.Select(id => $"\"{id}\""));
+
+        // Delete favorites first (foreign key constraint)
+        using var favReq = new HttpRequestMessage(HttpMethod.Delete,
+            $"{supabaseUrl}/rest/v1/favorites?listing_id=in.({idList})");
+        AddHeaders(favReq);
+        favReq.Headers.Add("Prefer", "return=minimal");
+        await (await httpClient.SendAsync(favReq)).EnsureSuccessStatusCode().Content.ReadAsStringAsync();
+
+        // Then delete listings
+        using var listReq = new HttpRequestMessage(HttpMethod.Delete,
+            $"{supabaseUrl}/rest/v1/listings?id=in.({idList})");
+        AddHeaders(listReq);
+        listReq.Headers.Add("Prefer", "return=minimal");
+        (await httpClient.SendAsync(listReq)).EnsureSuccessStatusCode();
     }
 
     private class IdOnly

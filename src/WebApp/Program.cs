@@ -31,9 +31,12 @@ app.MapGet("/api/listings", async (
     bool? hasNaturalGas,
     bool? hasParking,
     bool? petAllowed,
-    int? maxPrice) =>
+    int? maxPrice,
+    double? minSizePing,
+    double? maxSizePing) =>
     Results.Ok(await svc.GetListingsAsync(
-        hasFurniture, hasInternet, hasNaturalGas, hasParking, petAllowed, maxPrice)));
+        hasFurniture, hasInternet, hasNaturalGas, hasParking, petAllowed,
+        maxPrice, minSizePing, maxSizePing)));
 
 // ── Favorites ───────────────────────────────────────────────────
 app.MapGet("/api/favorites",

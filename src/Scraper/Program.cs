@@ -95,107 +95,148 @@ if (args.Contains("--backfill"))
     return;
 }
 
+// ── Main scrape ──────────────────────────────────────────────────
 Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Start scraping 591");
 
 var searchItems = await scraper591.SearchListingsAsync(config);
 Console.WriteLine($"Fetched listings: {searchItems.Count}");
 
-if (searchItems.Count == 0) return;
-
-var candidateIds = searchItems.Select(x => x.PostId).ToList();
-var existingIds = await supabase.GetExistingIdsAsync(candidateIds);
-var newItems = searchItems.Where(x => !existingIds.Contains(x.PostId)).ToList();
-Console.WriteLine($"New listings after dedupe: {newItems.Count}");
-
-if (newItems.Count == 0) return;
-
-var newListings = new List<Listing>();
-var detailUnavailableCount = 0;
-var filteredByFurnitureCount = 0;
-var filteredByInternetCount = 0;
-
-foreach (var item in newItems)
+if (searchItems.Count > 0)
 {
-    var detail = await scraper591.GetListingDetailAsync(item.PostId);
-    var detailFetched = detail is not null;
-    if (!detailFetched)
-        detailUnavailableCount++;
+    var candidateIds = searchItems.Select(x => x.PostId).ToList();
+    var existingIds = await supabase.GetExistingIdsAsync(candidateIds);
+    var newItems = searchItems.Where(x => !existingIds.Contains(x.PostId)).ToList();
+    Console.WriteLine($"New listings after dedupe: {newItems.Count}");
 
-    var coords = await geocoding.GetCoordinatesAsync(item.Address);
-    await Task.Delay(1100); // Nominatim rate limit: 1 req/sec
-    Console.WriteLine($"Processing {item.Title} ({item.PostId}) - address: {item.Address}");
-
-    var listing = new Listing
+    if (newItems.Count > 0)
     {
-        Id = item.PostId,
-        Title = item.Title,
-        Price = int.TryParse(item.Price, out var p) ? p : 0,
-        Address = item.Address,
-        Lat = coords?.Lat,
-        Lng = coords?.Lng,
-        SizePing = double.TryParse(item.Area, out var a) ? a : 0,
-        RoomType = item.KindName,
-        HasFurniture = detail?.Furniture == 1,
-        HasNaturalGas = detail?.NaturalGas == 1,
-        HasCableTv = detail?.CableTv == 1,
-        HasInternet = detail?.Broadband == 1,
-        HasParking = detail?.ParkingSpace == 1,
-        PetAllowed = detail?.CanKeepPet == 1,
-        Url = $"https://rent.591.com.tw/rent-detail-{item.PostId}.html",
-        Images = detail?.PhotoList.Select(ph => ph.Src).ToList()
-                 ?? (item.Photo != "" ? [item.Photo] : []),
-        ScrapedAt = DateTimeOffset.UtcNow,
-        Notified = false
-    };
+        var newListings = new List<Listing>();
+        var detailUnavailableCount = 0;
+        var filteredByFurnitureCount = 0;
+        var filteredByInternetCount = 0;
 
-    if (!PriceFilter.IsWithinRange(item.Price, config))
-        continue;
+        foreach (var item in newItems)
+        {
+            var detail = await scraper591.GetListingDetailAsync(item.PostId);
+            var detailFetched = detail is not null;
+            if (!detailFetched)
+                detailUnavailableCount++;
 
-    if (config.RequireFurniture && detailFetched && !listing.HasFurniture)
-    {
-        filteredByFurnitureCount++;
-        continue;
+            var coords = await geocoding.GetCoordinatesAsync(item.Address);
+            await Task.Delay(1100); // Nominatim rate limit: 1 req/sec
+            Console.WriteLine($"Processing {item.Title} ({item.PostId}) - address: {item.Address}");
+
+            var listing = new Listing
+            {
+                Id = item.PostId,
+                Title = item.Title,
+                Price = int.TryParse(item.Price, out var p) ? p : 0,
+                Address = item.Address,
+                Lat = coords?.Lat,
+                Lng = coords?.Lng,
+                SizePing = double.TryParse(item.Area, out var a) ? a : 0,
+                RoomType = item.KindName,
+                HasFurniture = detail?.Furniture == 1,
+                HasNaturalGas = detail?.NaturalGas == 1,
+                HasCableTv = detail?.CableTv == 1,
+                HasInternet = detail?.Broadband == 1,
+                HasParking = detail?.ParkingSpace == 1,
+                PetAllowed = detail?.CanKeepPet == 1,
+                HasFridge = detail?.Fridge == 1,
+                HasWashingMachine = detail?.WashingMachine == 1,
+                HasWaterHeater = detail?.WaterHeater == 1,
+                HasAirCon = detail?.AirCon == 1,
+                HasTv = detail?.Tv == 1,
+                HasBed = detail?.Bed == 1,
+                HasWardrobe = detail?.Wardrobe == 1,
+                HasElevator = detail?.Elevator == 1,
+                HasBalcony = detail?.Balcony == 1,
+                Url = $"https://rent.591.com.tw/rent-detail-{item.PostId}.html",
+                Images = detail?.PhotoList.Select(ph => ph.Src).ToList()
+                         ?? (item.Photo != "" ? [item.Photo] : []),
+                ScrapedAt = DateTimeOffset.UtcNow,
+                Notified = false
+            };
+
+            if (!PriceFilter.IsWithinRange(item.Price, config))
+                continue;
+
+            if (config.RequireFurniture && detailFetched && !listing.HasFurniture)
+            {
+                filteredByFurnitureCount++;
+                continue;
+            }
+
+            if (config.RequireInternet && detailFetched && !listing.HasInternet)
+            {
+                filteredByInternetCount++;
+                continue;
+            }
+
+            if (!EquipmentFilter.ShouldInclude(config, listing, detailFetched))
+                continue;
+
+            newListings.Add(listing);
+        }
+
+        Console.WriteLine($"Passed equipment filter: {newListings.Count}");
+        Console.WriteLine($"Detail fetch failed: {detailUnavailableCount}");
+        Console.WriteLine($"Filtered by furniture: {filteredByFurnitureCount}");
+        Console.WriteLine($"Filtered by internet: {filteredByInternetCount}");
+
+        if (newListings.Count > 0)
+        {
+            await supabase.UpsertListingsAsync(newListings);
+            Console.WriteLine("Upserted to Supabase");
+
+            var notifiedIds = new List<string>();
+            foreach (var listing in newListings)
+            {
+                try
+                {
+                    await telegram.SendNotificationAsync(listing, telegramToken, telegramChatId);
+                    notifiedIds.Add(listing.Id);
+                    Console.WriteLine($"Notified: {listing.Title} (${listing.Price:N0})");
+                    await Task.Delay(500);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Telegram failed [{listing.Id}]: {ex.Message}");
+                }
+            }
+
+            if (notifiedIds.Count > 0)
+                await supabase.MarkNotifiedAsync(notifiedIds);
+
+            Console.WriteLine($"Notified: {notifiedIds.Count}");
+        }
     }
-
-    if (config.RequireInternet && detailFetched && !listing.HasInternet)
-    {
-        filteredByInternetCount++;
-        continue;
-    }
-
-    if (!EquipmentFilter.ShouldInclude(config, listing, detailFetched))
-        continue;
-
-    newListings.Add(listing);
 }
 
-Console.WriteLine($"Passed equipment filter: {newListings.Count}");
-Console.WriteLine($"Detail fetch failed: {detailUnavailableCount}");
-Console.WriteLine($"Filtered by furniture: {filteredByFurnitureCount}");
-Console.WriteLine($"Filtered by internet: {filteredByInternetCount}");
+// ── Cleanup expired listings (always runs) ───────────────────────
+Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Checking for expired listings...");
+var allListingIds = await supabase.GetAllListingIdsAsync();
+var expiredIds = new List<string>();
 
-if (newListings.Count == 0) return;
-
-await supabase.UpsertListingsAsync(newListings);
-Console.WriteLine("Upserted to Supabase");
-
-var notifiedIds = new List<string>();
-foreach (var listing in newListings)
+foreach (var id in allListingIds)
 {
-    try
+    var active = await scraper591.IsListingActiveAsync(id);
+    if (!active)
     {
-        await telegram.SendNotificationAsync(listing, telegramToken, telegramChatId);
-        notifiedIds.Add(listing.Id);
-        Console.WriteLine($"Notified: {listing.Title} (${listing.Price:N0})");
-        await Task.Delay(500);
+        expiredIds.Add(id);
+        Console.WriteLine($"  [expired] {id}");
     }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"Telegram failed [{listing.Id}]: {ex.Message}");
-    }
+    await Task.Delay(300);
 }
 
-if (notifiedIds.Count > 0)
-    await supabase.MarkNotifiedAsync(notifiedIds);
+if (expiredIds.Count > 0)
+{
+    await supabase.DeleteExpiredListingsAsync(expiredIds);
+    Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Deleted {expiredIds.Count} expired listing(s)");
+}
+else
+{
+    Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] No expired listings found");
+}
 
-Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Done. Notified: {notifiedIds.Count}");
+Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Done");

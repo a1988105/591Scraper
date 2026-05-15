@@ -47,6 +47,33 @@ public class Listing
     [JsonPropertyName("pet_allowed")]
     public bool PetAllowed { get; set; }
 
+    [JsonPropertyName("has_fridge")]
+    public bool HasFridge { get; set; }
+
+    [JsonPropertyName("has_washing_machine")]
+    public bool HasWashingMachine { get; set; }
+
+    [JsonPropertyName("has_water_heater")]
+    public bool HasWaterHeater { get; set; }
+
+    [JsonPropertyName("has_air_con")]
+    public bool HasAirCon { get; set; }
+
+    [JsonPropertyName("has_tv")]
+    public bool HasTv { get; set; }
+
+    [JsonPropertyName("has_bed")]
+    public bool HasBed { get; set; }
+
+    [JsonPropertyName("has_wardrobe")]
+    public bool HasWardrobe { get; set; }
+
+    [JsonPropertyName("has_elevator")]
+    public bool HasElevator { get; set; }
+
+    [JsonPropertyName("has_balcony")]
+    public bool HasBalcony { get; set; }
+
     [JsonPropertyName("url")]
     public string Url { get; set; } = default!;
 
@@ -116,29 +143,25 @@ public class DetailResponse
 
 public class DetailData
 {
-    [JsonPropertyName("id")]
     public string Id { get; set; } = default!;
-
-    [JsonPropertyName("photo_list")]
     public List<PhotoItem> PhotoList { get; set; } = new();
 
-    [JsonPropertyName("furniture")]
     public int Furniture { get; set; }
-
-    [JsonPropertyName("natural_gas")]
     public int NaturalGas { get; set; }
-
-    [JsonPropertyName("cable_tv")]
     public int CableTv { get; set; }
-
-    [JsonPropertyName("broadband")]
     public int Broadband { get; set; }
-
-    [JsonPropertyName("parking_space")]
     public int ParkingSpace { get; set; }
-
-    [JsonPropertyName("can_keep_pet")]
     public int CanKeepPet { get; set; }
+
+    public int Fridge { get; set; }
+    public int WashingMachine { get; set; }
+    public int WaterHeater { get; set; }
+    public int AirCon { get; set; }
+    public int Tv { get; set; }
+    public int Bed { get; set; }
+    public int Wardrobe { get; set; }
+    public int Elevator { get; set; }
+    public int Balcony { get; set; }
 }
 
 public class PhotoItem

@@ -68,7 +68,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 .modal-price { color: #10b981; font-weight: 700; font-size: 1.1em; margin-bottom: 4px; }
 .modal-address { color: #94a3b8; font-size: 0.85em; margin-bottom: 4px; }
 .modal-meta { color: #64748b; font-size: 0.82em; margin-bottom: 10px; }
-.modal-amenities { font-size: 0.85em; line-height: 2; margin-bottom: 10px; }
+.modal-amenities { font-size: 0.85em; line-height: 2; margin-bottom: 10px;
+  display: flex; flex-wrap: wrap; gap: 6px; }
+.amenity-tag { background: #0f172a; border: 1px solid #334155; border-radius: 4px;
+  padding: 2px 8px; font-size: 0.82em; white-space: nowrap; }
 .modal-status-row, .modal-note-row { margin-bottom: 8px; }
 .modal-status-row select, .modal-note-row textarea {
   width: 100%; background: #0f172a; border: 1px solid #334155; border-radius: 4px;

@@ -19,7 +19,9 @@ public class SupabaseService(HttpClient httpClient, string supabaseUrl, string s
         bool? hasNaturalGas = null,
         bool? hasParking = null,
         bool? petAllowed = null,
-        int? maxPrice = null)
+        int? maxPrice = null,
+        double? minSizePing = null,
+        double? maxSizePing = null)
     {
         var filters = new List<string>();
         if (hasFurniture == true) filters.Add("has_furniture=eq.true");
@@ -28,6 +30,8 @@ public class SupabaseService(HttpClient httpClient, string supabaseUrl, string s
         if (hasParking == true) filters.Add("has_parking=eq.true");
         if (petAllowed == true) filters.Add("pet_allowed=eq.true");
         if (maxPrice.HasValue) filters.Add($"price=lte.{maxPrice}");
+        if (minSizePing.HasValue) filters.Add($"size_ping=gte.{minSizePing}");
+        if (maxSizePing.HasValue) filters.Add($"size_ping=lte.{maxSizePing}");
 
         var query = filters.Count > 0 ? "&" + string.Join("&", filters) : "";
         var url = $"{supabaseUrl}/rest/v1/listings?order=scraped_at.desc{query}";

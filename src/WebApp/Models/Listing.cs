@@ -46,6 +46,33 @@ public class Listing
     [JsonPropertyName("pet_allowed")]
     public bool PetAllowed { get; set; }
 
+    [JsonPropertyName("has_fridge")]
+    public bool HasFridge { get; set; }
+
+    [JsonPropertyName("has_washing_machine")]
+    public bool HasWashingMachine { get; set; }
+
+    [JsonPropertyName("has_water_heater")]
+    public bool HasWaterHeater { get; set; }
+
+    [JsonPropertyName("has_air_con")]
+    public bool HasAirCon { get; set; }
+
+    [JsonPropertyName("has_tv")]
+    public bool HasTv { get; set; }
+
+    [JsonPropertyName("has_bed")]
+    public bool HasBed { get; set; }
+
+    [JsonPropertyName("has_wardrobe")]
+    public bool HasWardrobe { get; set; }
+
+    [JsonPropertyName("has_elevator")]
+    public bool HasElevator { get; set; }
+
+    [JsonPropertyName("has_balcony")]
+    public bool HasBalcony { get; set; }
+
     [JsonPropertyName("url")]
     public string Url { get; set; } = default!;
 

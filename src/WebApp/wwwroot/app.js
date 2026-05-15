@@ -62,18 +62,48 @@ async function loadAllListings() {
 
 // ── Filter ───────────────────────────────────────────────────────
 window.applyFilters = async function () {
+  const hasFurniture = document.getElementById('filterFurniture').checked;
+  const hasInternet  = document.getElementById('filterInternet').checked;
+  const hasGas       = document.getElementById('filterGas').checked;
+  const hasParking   = document.getElementById('filterParking').checked;
+  const hasPet       = document.getElementById('filterPet').checked;
+  const maxPrice     = parseFloat(document.getElementById('filterMaxPrice').value) || null;
+  const minPing      = parseFloat(document.getElementById('filterMinPing').value)  || null;
+  const maxPing      = parseFloat(document.getElementById('filterMaxPing').value)  || null;
+
+  function matchesFilters(l) {
+    if (hasFurniture && !l.has_furniture)   return false;
+    if (hasInternet  && !l.has_internet)    return false;
+    if (hasGas       && !l.has_natural_gas) return false;
+    if (hasParking   && !l.has_parking)     return false;
+    if (hasPet       && !l.pet_allowed)     return false;
+    if (maxPrice !== null && l.price > maxPrice)       return false;
+    if (minPing  !== null && l.size_ping < minPing)    return false;
+    if (maxPing  !== null && l.size_ping > maxPing)    return false;
+    return true;
+  }
+
+  clearMarkers();
+
+  if (activeView === 'favorites') {
+    const listings = currentFavorites.map(f => f.listing).filter(Boolean).filter(matchesFilters);
+    renderList(listings, currentFavorites);
+    renderMarkers(listings);
+    return;
+  }
+
   const params = new URLSearchParams();
-  if (document.getElementById('filterFurniture').checked) params.set('hasFurniture', 'true');
-  if (document.getElementById('filterInternet').checked) params.set('hasInternet', 'true');
-  if (document.getElementById('filterGas').checked) params.set('hasNaturalGas', 'true');
-  if (document.getElementById('filterParking').checked) params.set('hasParking', 'true');
-  if (document.getElementById('filterPet').checked) params.set('petAllowed', 'true');
-  const maxPrice = document.getElementById('filterMaxPrice').value;
-  if (maxPrice) params.set('maxPrice', maxPrice);
+  if (hasFurniture) params.set('hasFurniture', 'true');
+  if (hasInternet)  params.set('hasInternet', 'true');
+  if (hasGas)       params.set('hasNaturalGas', 'true');
+  if (hasParking)   params.set('hasParking', 'true');
+  if (hasPet)       params.set('petAllowed', 'true');
+  if (maxPrice)     params.set('maxPrice', maxPrice);
+  if (minPing)      params.set('minSizePing', minPing);
+  if (maxPing)      params.set('maxSizePing', maxPing);
 
   const listings = await apiFetch('/api/listings?' + params.toString());
   currentListings = listings;
-  clearMarkers();
   renderList(listings, currentFavorites);
   renderMarkers(listings);
 };
@@ -167,12 +197,28 @@ function openModal(listing, fav) {
   document.getElementById('modalMeta').textContent = `${listing.size_ping} 坪 · ${listing.room_type}`;
   document.getElementById('modalLink').href = listing.url;
 
-  const b = v => v ? '✅' : '❌';
-  document.getElementById('modalAmenities').innerHTML = `
-    🪑 家具 ${b(listing.has_furniture)} &nbsp; 🔥 天然氣 ${b(listing.has_natural_gas)}<br>
-    📺 第四台 ${b(listing.has_cable_tv)} &nbsp; 🌐 網路 ${b(listing.has_internet)}<br>
-    🚗 停車 ${b(listing.has_parking)} &nbsp; 🐾 寵物 ${b(listing.pet_allowed)}
-  `;
+  const amenityList = [
+    { icon: '🛏', label: '床',    val: listing.has_bed },
+    { icon: '👗', label: '衣櫃',  val: listing.has_wardrobe },
+    { icon: '🧊', label: '冰箱',  val: listing.has_fridge },
+    { icon: '🫧', label: '洗衣機', val: listing.has_washing_machine },
+    { icon: '🚿', label: '熱水器', val: listing.has_water_heater },
+    { icon: '❄️', label: '冷氣',  val: listing.has_air_con },
+    { icon: '📺', label: '電視',  val: listing.has_tv },
+    { icon: '🔥', label: '天然氣', val: listing.has_natural_gas },
+    { icon: '🌐', label: '網路',  val: listing.has_internet },
+    { icon: '📡', label: '第四台', val: listing.has_cable_tv },
+    { icon: '🛗', label: '電梯',  val: listing.has_elevator },
+    { icon: '🌿', label: '陽台',  val: listing.has_balcony },
+    { icon: '🚗', label: '停車',  val: listing.has_parking },
+    { icon: '🐾', label: '寵物',  val: listing.pet_allowed },
+  ];
+  const tags = amenityList
+    .filter(a => a.val)
+    .map(a => `<span class="amenity-tag">${a.icon} ${a.label}</span>`)
+    .join('');
+  document.getElementById('modalAmenities').innerHTML =
+    tags || '<span style="color:#64748b;font-size:0.8em">無設備資料</span>';
 
   const statusRow = document.getElementById('modalStatusRow');
   const noteRow = document.getElementById('modalNoteRow');

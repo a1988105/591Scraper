@@ -236,45 +236,83 @@ public class Scraper591Service(HttpClient httpClient)
 
     internal static DetailData? ParseDetailHtml(string html, string postId)
     {
-        // Find the facility section
-        var sectionMatch = Regex.Match(
+        // Collect all facility sections (service-facility, service-life, etc.)
+        var sectionMatches = Regex.Matches(
             html,
-            @"class=""facility service-facility""[^>]*>(.*?)</div>",
+            @"class=""facility [^""]*""[^>]*>(.*?)</div>",
             RegexOptions.Singleline);
 
-        if (!sectionMatch.Success) return null;
-
-        var section = sectionMatch.Groups[1].Value;
-
-        // Parse each <dl> and check if it has class="del" (unavailable)
-        var dlMatches = Regex.Matches(
-            section,
-            @"<dl\s*(class=""(?<cls>[^""]*)"")?[^>]*>.*?<dd[^>]*>(?<label>[^<]+)</dd>",
-            RegexOptions.Singleline);
+        if (sectionMatches.Count == 0) return null;
 
         var available = new HashSet<string>();
-        foreach (Match dl in dlMatches)
+        foreach (Match section in sectionMatches)
         {
-            var cls = dl.Groups["cls"].Value;
-            if (cls.Contains("del")) continue;
-            var label = WebUtility.HtmlDecode(dl.Groups["label"].Value).Trim();
-            available.Add(label);
+            var dlMatches = Regex.Matches(
+                section.Groups[1].Value,
+                @"<dl\s*(class=""(?<cls>[^""]*)"")?[^>]*>.*?<dd[^>]*>(?<label>[^<]+)</dd>",
+                RegexOptions.Singleline);
+
+            foreach (Match dl in dlMatches)
+            {
+                if (dl.Groups["cls"].Value.Contains("del")) continue;
+                var label = WebUtility.HtmlDecode(dl.Groups["label"].Value).Trim();
+                available.Add(label);
+            }
         }
 
         static int Has(HashSet<string> set, params string[] labels)
             => labels.Any(set.Contains) ? 1 : 0;
 
+        var bed      = Has(available, "床");
+        var wardrobe = Has(available, "衣櫃");
+        var fridge   = Has(available, "冰箱");
+        var washer   = Has(available, "洗衣機");
+
         return new DetailData
         {
-            Id = postId,
-            Furniture = Has(available, "床", "衣櫃", "沙發", "桌椅", "冰箱", "洗衣機"),
-            NaturalGas = Has(available, "天然瓦斯"),
-            CableTv = Has(available, "第四台"),
-            Broadband = Has(available, "網路", "寬頻"),
-            ParkingSpace = Has(available, "車位"),
-            CanKeepPet = Has(available, "可養寵物", "寵物"),
-            PhotoList = []
+            Id             = postId,
+            Furniture      = bed == 1 || wardrobe == 1 || fridge == 1 || washer == 1
+                             || Has(available, "沙發", "桌椅") == 1 ? 1 : 0,
+            NaturalGas     = Has(available, "天然瓦斯"),
+            CableTv        = Has(available, "第四台"),
+            Broadband      = Has(available, "網路", "寬頻"),
+            ParkingSpace   = Has(available, "車位"),
+            CanKeepPet     = Has(available, "可養寵物", "寵物"),
+            Fridge         = fridge,
+            WashingMachine = washer,
+            WaterHeater    = Has(available, "熱水器"),
+            AirCon         = Has(available, "冷氣"),
+            Tv             = Has(available, "電視"),
+            Bed            = bed,
+            Wardrobe       = wardrobe,
+            Elevator       = Has(available, "電梯"),
+            Balcony        = Has(available, "陽台"),
+            PhotoList      = []
         };
+    }
+
+    public async Task<bool> IsListingActiveAsync(string postId)
+    {
+        var url = $"https://rent.591.com.tw/rent-detail-{postId}.html";
+        var req = new HttpRequestMessage(HttpMethod.Get, url);
+        req.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36");
+        req.Headers.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+
+        try
+        {
+            var response = await httpClient.SendAsync(req);
+            if (!response.IsSuccessStatusCode) return false;
+
+            var html = await response.Content.ReadAsStringAsync();
+            if (html.Contains("已下架") || html.Contains("此物件不存在") || html.Contains("rent-list"))
+                return false;
+
+            return true;
+        }
+        catch
+        {
+            return true; // network hiccup — assume still active
+        }
     }
 
     private static string ExtractPrice(string block)

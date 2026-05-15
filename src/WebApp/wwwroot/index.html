@@ -38,6 +38,16 @@
             <input type="number" id="filterMaxPrice" placeholder="不限" step="1000">
           </label>
         </div>
+        <div class="price-filter">
+          <label>坪數（最小）
+            <input type="number" id="filterMinPing" placeholder="不限" step="1" min="0">
+          </label>
+        </div>
+        <div class="price-filter">
+          <label>坪數（最大）
+            <input type="number" id="filterMaxPing" placeholder="不限" step="1" min="0">
+          </label>
+        </div>
         <button class="btn-filter" onclick="applyFilters()">套用篩選</button>
       </div>
 
