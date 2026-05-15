@@ -48,10 +48,37 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   transition: border-color 0.15s; }
 .listing-card:hover { border-left-color: #6366f1; }
 .listing-card.active { border-left-color: #10b981; }
-.card-title { font-size: 0.88em; font-weight: 600; margin-bottom: 3px; white-space: nowrap;
-  overflow: hidden; text-overflow: ellipsis; }
+.listing-card.rejected { background: #2d1515; border-left-color: #ef4444; }
+.listing-card.rejected:hover { border-left-color: #f87171; }
+
+.card-header { display: flex; align-items: flex-start; gap: 6px; margin-bottom: 3px; }
+.card-title { font-size: 0.88em; font-weight: 600; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; flex: 1; }
+.listing-card.rejected .card-title { color: #fca5a5; }
+
+.card-reject-btn { flex-shrink: 0; background: rgba(239,68,68,0.12);
+  border: 1px solid rgba(239,68,68,0.35); border-radius: 4px; color: #f87171;
+  cursor: pointer; font-size: 0.75em; padding: 2px 6px; line-height: 1.5;
+  white-space: nowrap; }
+.card-reject-btn:hover { background: rgba(239,68,68,0.3); border-color: #ef4444; color: #fff; }
+.card-reject-btn.is-rejected { background: rgba(99,102,241,0.15);
+  border-color: rgba(99,102,241,0.5); color: #a5b4fc; }
+.card-reject-btn.is-rejected:hover { background: rgba(16,185,129,0.2);
+  border-color: #10b981; color: #6ee7b7; }
+
 .card-price { color: #10b981; font-size: 0.85em; font-weight: 600; }
+.listing-card.rejected .card-price { color: #f87171; }
 .card-status { font-size: 0.75em; color: #64748b; margin-top: 2px; }
+.listing-card.rejected .card-status { color: #fca5a5; opacity: 0.7; }
+
+.rejected-divider { display: flex; align-items: center; margin: 10px 0 6px;
+  font-size: 0.72em; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
+.rejected-divider::before, .rejected-divider::after { content: ''; flex: 1;
+  height: 1px; background: #334155; }
+.rejected-divider::before { margin-right: 8px; }
+.rejected-divider::after { margin-left: 8px; }
+
+.rejected-label { color: #f87171; }
 
 .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.6);
   display: flex; align-items: center; justify-content: center; z-index: 1000; }

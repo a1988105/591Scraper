@@ -2,15 +2,23 @@ let map;
 let markers = [];
 let markerMap = new Map();   // listingId → marker
 let activeMarkerId = null;
-let tooltipsVisible = true;
+let tooltipsVisible = localStorage.getItem('tooltipsVisible') !== 'false';
+let showRejected    = localStorage.getItem('showRejected') === 'true';
+let activeView      = localStorage.getItem('activeView') || 'favorites';
 let currentListings = [];
 let currentFavorites = [];
 let favoriteIds = new Set();
-let activeView = 'favorites';
 let currentListingId = null;
 
 // ── Map init ─────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  // Restore toggle UI states from localStorage
+  document.getElementById('tooltipToggle').checked      = tooltipsVisible;
+  document.getElementById('showRejectedToggle').checked = showRejected;
+  document.querySelectorAll('.tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.view === activeView)
+  );
+
   map = L.map('map', { zoomControl: true }).setView([25.033, 121.565], 13);
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -18,12 +26,13 @@ document.addEventListener('DOMContentLoaded', () => {
     maxZoom: 19
   }).addTo(map);
 
-  loadView('favorites');
+  loadView(activeView);
 });
 
 // ── View switching ───────────────────────────────────────────────
 window.switchView = function (view) {
   activeView = view;
+  localStorage.setItem('activeView', view);
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.view === view));
   loadView(view);
 };
@@ -52,11 +61,16 @@ async function loadFavorites() {
 
 // ── All listings view ────────────────────────────────────────────
 async function loadAllListings() {
-  const listings = await apiFetch('/api/listings');
+  const [listings, favs] = await Promise.all([
+    apiFetch('/api/listings'),
+    apiFetch('/api/favorites')
+  ]);
   currentListings = listings;
+  currentFavorites = favs;
+  favoriteIds = new Set(favs.map(f => f.listing_id));
   document.getElementById('countBadge').textContent = `${listings.length} 筆物件`;
   document.getElementById('listTitle').textContent = '所有物件';
-  renderList(listings, currentFavorites);
+  renderList(listings, favs);
   renderMarkers(listings);
 }
 
@@ -124,13 +138,21 @@ function makeCircleIcon(color, highlighted = false) {
   });
 }
 
+function getMarkerColor(listing) {
+  const fav = currentFavorites.find(f => f.listing_id === listing.id);
+  if (fav?.status === '不考慮') return '#ef4444';
+  return favoriteIds.has(listing.id) ? '#10b981' : '#6366f1';
+}
+
 function renderMarkers(listings) {
   listings.forEach(listing => {
     if (!listing.lat || !listing.lng) return;
 
-    const isFav = favoriteIds.has(listing.id);
+    const fav = currentFavorites.find(f => f.listing_id === listing.id);
+    if (!showRejected && fav?.status === '不考慮') return;
+
     const marker = L.marker([listing.lat, listing.lng], {
-      icon: makeCircleIcon(isFav ? '#10b981' : '#6366f1'),
+      icon: makeCircleIcon(getMarkerColor(listing)),
       title: listing.title
     }).addTo(map);
 
@@ -138,7 +160,6 @@ function renderMarkers(listings) {
       `<b>${listing.title}</b><br>$${listing.price.toLocaleString()} / 月`,
       { direction: 'top', offset: [0, -12], permanent: true, opacity: tooltipsVisible ? 0.9 : 0 }
     );
-    const fav = currentFavorites.find(f => f.listing_id === listing.id);
     marker.on('click', () => openModal(listing, fav));
     markers.push(marker);
     markerMap.set(listing.id, { marker, listing });
@@ -153,32 +174,53 @@ function clearMarkers() {
 }
 
 // ── Render sidebar list ──────────────────────────────────────────
+function buildCard(listing, favMap) {
+  const fav = favMap[listing.id];
+  const isRejected = fav?.status === '不考慮';
+  const card = document.createElement('div');
+  card.className = 'listing-card' + (fav && !isRejected ? ' active' : '') + (isRejected ? ' rejected' : '');
+  card.innerHTML = `
+    <div class="card-header">
+      <div class="card-title" title="${listing.title}">${listing.title}</div>
+      <button class="card-reject-btn${isRejected ? ' is-rejected' : ''}"
+        onclick="event.stopPropagation(); quickToggleRejected(${listing.id}, ${isRejected})">
+        ${isRejected ? '↩ 恢復' : '✕ 不考慮'}
+      </button>
+    </div>
+    <div class="card-price">$${listing.price.toLocaleString()} / 月</div>
+    <div class="card-status">${fav ? fav.status : listing.room_type} · ${listing.size_ping} 坪</div>
+  `;
+  card.addEventListener('click', () => {
+    highlightMarker(listing);
+    if (listing.lat && listing.lng)
+      map.flyTo([listing.lat, listing.lng], 16, { duration: 0.8 });
+  });
+  return card;
+}
+
 function renderList(listings, favs) {
   const favMap = Object.fromEntries(favs.map(f => [f.listing_id, f]));
   const container = document.getElementById('listContainer');
   container.innerHTML = '';
 
-  if (listings.length === 0) {
+  const rejectedListings = listings.filter(l => favMap[l.id]?.status === '不考慮');
+  const normalListings   = listings.filter(l => favMap[l.id]?.status !== '不考慮');
+
+  const hasVisible = normalListings.length > 0 || (showRejected && rejectedListings.length > 0);
+  if (!hasVisible) {
     container.innerHTML = '<p style="color:#64748b;font-size:0.85em;text-align:center;padding:16px">無物件</p>';
     return;
   }
 
-  listings.forEach(listing => {
-    const fav = favMap[listing.id];
-    const card = document.createElement('div');
-    card.className = 'listing-card' + (fav ? ' active' : '');
-    card.innerHTML = `
-      <div class="card-title" title="${listing.title}">${listing.title}</div>
-      <div class="card-price">$${listing.price.toLocaleString()} / 月</div>
-      <div class="card-status">${fav ? fav.status : listing.room_type} · ${listing.size_ping} 坪</div>
-    `;
-    card.addEventListener('click', () => {
-      highlightMarker(listing);
-      if (listing.lat && listing.lng)
-        map.flyTo([listing.lat, listing.lng], 16, { duration: 0.8 });
-    });
-    container.appendChild(card);
-  });
+  normalListings.forEach(l => container.appendChild(buildCard(l, favMap)));
+
+  if (showRejected && rejectedListings.length > 0) {
+    const divider = document.createElement('div');
+    divider.className = 'rejected-divider';
+    divider.innerHTML = `<span>不考慮 (${rejectedListings.length})</span>`;
+    container.appendChild(divider);
+    rejectedListings.forEach(l => container.appendChild(buildCard(l, favMap)));
+  }
 }
 
 // ── Info modal ───────────────────────────────────────────────────
@@ -271,23 +313,46 @@ window.saveNote = async function (note) {
 function highlightMarker(listing) {
   if (activeMarkerId) {
     const prev = markerMap.get(activeMarkerId);
-    if (prev) {
-      const isFav = favoriteIds.has(prev.listing.id);
-      prev.marker.setIcon(makeCircleIcon(isFav ? '#10b981' : '#6366f1', false));
-    }
+    if (prev) prev.marker.setIcon(makeCircleIcon(getMarkerColor(prev.listing), false));
   }
   activeMarkerId = listing.id;
   const entry = markerMap.get(listing.id);
-  if (entry) {
-    const isFav = favoriteIds.has(listing.id);
-    entry.marker.setIcon(makeCircleIcon(isFav ? '#10b981' : '#6366f1', true));
-  }
+  if (entry) entry.marker.setIcon(makeCircleIcon(getMarkerColor(listing), true));
 }
 
 // ── Tooltip toggle ───────────────────────────────────────────────
 window.toggleTooltips = function (visible) {
   tooltipsVisible = visible;
+  localStorage.setItem('tooltipsVisible', visible);
   markers.forEach(m => m.getTooltip()?.setOpacity(visible ? 0.9 : 0));
+};
+
+// ── Show/hide rejected toggle ────────────────────────────────────
+window.toggleShowRejected = function (visible) {
+  showRejected = visible;
+  localStorage.setItem('showRejected', visible);
+  clearMarkers();
+  if (activeView === 'favorites') {
+    const listings = currentFavorites.map(f => f.listing).filter(Boolean);
+    renderList(listings, currentFavorites);
+    renderMarkers(listings);
+  } else {
+    renderList(currentListings, currentFavorites);
+    renderMarkers(currentListings);
+  }
+};
+
+// ── Quick reject toggle on card ──────────────────────────────────
+window.quickToggleRejected = async function (listingId, isCurrentlyRejected) {
+  if (isCurrentlyRejected) {
+    await apiFetch(`/api/favorites/${listingId}`, 'PATCH', { status: '待看' });
+  } else {
+    if (!favoriteIds.has(listingId)) {
+      await apiFetch(`/api/favorites/${listingId}`, 'POST');
+    }
+    await apiFetch(`/api/favorites/${listingId}`, 'PATCH', { status: '不考慮' });
+  }
+  await loadView(activeView);
 };
 
 // ── API helper ───────────────────────────────────────────────────
