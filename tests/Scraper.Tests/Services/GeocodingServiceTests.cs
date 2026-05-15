@@ -161,13 +161,17 @@ public class GeocodingServiceTests
     [Fact]
     public async Task GetCoordinates_NoisyAddress_CleansAndReturnsCoords()
     {
-        // Noisy address (3F suffix) should be cleaned before geocoding — first call succeeds
+        // Rule 1 (evaluated first): if the raw noisy "3F" appears in the URL, return 404.
+        // If NormalizeAddress was NOT called, the URL will contain "3F" and this rule fires → test fails.
+        // If NormalizeAddress ran correctly, "3F" is stripped before the URL is built → rule 1 is skipped.
         var handler = new MockHttpMessageHandler();
+        handler.Setup("3F", HttpStatusCode.NotFound, "");
+        // Rule 2: cleaned address has no "3F" → only this rule matches → returns coordinates.
         handler.Setup("nominatim.openstreetmap.org", HttpStatusCode.OK, """
             [{"lat":"25.033","lon":"121.565","display_name":"台北市大安區復興南路一段"}]
             """);
 
-        var svc = new GeocodingService(new HttpClient(handler));
+        var svc = BuildService(handler);
         var result = await svc.GetCoordinatesAsync("台北市大安區復興南路一段100號3F");
 
         Assert.NotNull(result);
