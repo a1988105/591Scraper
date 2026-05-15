@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 
 namespace Scraper.Services;
 
@@ -30,6 +31,66 @@ public class GeocodingService(HttpClient httpClient)
             return null;
 
         return (lat, lng);
+    }
+
+    internal static string NormalizeAddress(string address)
+    {
+        // Remove parenthesized content (floor descriptions, building names)
+        address = Regex.Replace(address, @"[（(][^)）]*[）)]", "");
+
+        // Remove content after slash (half-width or full-width)
+        var slash = address.IndexOfAny(['/', '／']);
+        if (slash >= 0) address = address[..slash];
+
+        // Remove trailing floor descriptions: 3F, 3f, 3樓, B1F, B1
+        address = Regex.Replace(address, @"\s*[Bb]?\d+[Ff樓]$", "");
+
+        // Remove 近XXX landmark descriptions
+        address = Regex.Replace(address, @"近\S+", "");
+
+        // Remove trailing non-address descriptive words
+        address = Regex.Replace(address,
+            @"[\s,，、]*(精緻|優質|全新|整層住家|獨立套房|分租套房|雅房|套房|公寓|大廈|華廈)+$", "");
+
+        address = address.Trim();
+        return AddCityPrefix(address);
+    }
+
+    private static readonly Dictionary<string, string> DistrictToCity = new()
+    {
+        // 台北市 12 區
+        ["中正區"] = "台北市", ["大同區"] = "台北市", ["中山區"] = "台北市",
+        ["松山區"] = "台北市", ["大安區"] = "台北市", ["萬華區"] = "台北市",
+        ["信義區"] = "台北市", ["士林區"] = "台北市", ["北投區"] = "台北市",
+        ["內湖區"] = "台北市", ["南港區"] = "台北市", ["文山區"] = "台北市",
+        // 新北市 29 區
+        ["板橋區"] = "新北市", ["三重區"] = "新北市", ["中和區"] = "新北市",
+        ["永和區"] = "新北市", ["新莊區"] = "新北市", ["新店區"] = "新北市",
+        ["樹林區"] = "新北市", ["鶯歌區"] = "新北市", ["三峽區"] = "新北市",
+        ["淡水區"] = "新北市", ["汐止區"] = "新北市", ["瑞芳區"] = "新北市",
+        ["土城區"] = "新北市", ["蘆洲區"] = "新北市", ["五股區"] = "新北市",
+        ["泰山區"] = "新北市", ["林口區"] = "新北市", ["深坑區"] = "新北市",
+        ["石碇區"] = "新北市", ["坪林區"] = "新北市", ["三芝區"] = "新北市",
+        ["石門區"] = "新北市", ["八里區"] = "新北市", ["平溪區"] = "新北市",
+        ["雙溪區"] = "新北市", ["貢寮區"] = "新北市", ["金山區"] = "新北市",
+        ["萬里區"] = "新北市", ["烏來區"] = "新北市",
+    };
+
+    private static string AddCityPrefix(string address)
+    {
+        if (Regex.IsMatch(address,
+            @"^(台北市|新北市|桃園市|台中市|台南市|高雄市|基隆市|新竹市|嘉義市|" +
+            @"宜蘭縣|花蓮縣|台東縣|屏東縣|南投縣|雲林縣|嘉義縣|彰化縣|苗栗縣|新竹縣|" +
+            @"連江縣|金門縣|澎湖縣|臺北市|臺中市|臺南市|臺東縣)"))
+            return address;
+
+        foreach (var (district, city) in DistrictToCity)
+        {
+            if (address.StartsWith(district))
+                return city + address;
+        }
+
+        return address;
     }
 }
 

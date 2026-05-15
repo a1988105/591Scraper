@@ -47,4 +47,44 @@ public class GeocodingServiceTests
 
         Assert.Null(result);
     }
+
+    // ── NormalizeAddress ─────────────────────────────────────────────
+
+    [Theory]
+    [InlineData("台北市大安區復興南路一段100號3F",  "台北市大安區復興南路一段100號")]
+    [InlineData("台北市大安區復興南路一段100號3f",  "台北市大安區復興南路一段100號")]
+    [InlineData("台北市大安區復興南路一段100號3樓", "台北市大安區復興南路一段100號")]
+    [InlineData("台北市大安區復興南路一段100號B1F", "台北市大安區復興南路一段100號")]
+    public void NormalizeAddress_StripsFloorSuffix(string input, string expected)
+        => Assert.Equal(expected, GeocodingService.NormalizeAddress(input));
+
+    [Theory]
+    [InlineData("台北市大安區復興南路一段100號(3樓)",   "台北市大安區復興南路一段100號")]
+    [InlineData("台北市大安區復興南路一段100號（3F）",   "台北市大安區復興南路一段100號")]
+    [InlineData("台北市大安區復興南路一段100號(大安社區)", "台北市大安區復興南路一段100號")]
+    public void NormalizeAddress_StripsParentheses(string input, string expected)
+        => Assert.Equal(expected, GeocodingService.NormalizeAddress(input));
+
+    [Theory]
+    [InlineData("台北市大安區復興南路一段100號/近捷運站",   "台北市大安區復興南路一段100號")]
+    [InlineData("台北市大安區復興南路一段100號／近大安站",  "台北市大安區復興南路一段100號")]
+    public void NormalizeAddress_StripsSlashAndAfter(string input, string expected)
+        => Assert.Equal(expected, GeocodingService.NormalizeAddress(input));
+
+    [Theory]
+    [InlineData("台北市大安區復興南路一段100號近忠孝復興站", "台北市大安區復興南路一段100號")]
+    [InlineData("台北市大安區復興南路一段100號近大安捷運",  "台北市大安區復興南路一段100號")]
+    public void NormalizeAddress_StripsLandmarkDescription(string input, string expected)
+        => Assert.Equal(expected, GeocodingService.NormalizeAddress(input));
+
+    [Theory]
+    [InlineData("大安區復興南路一段100號", "台北市大安區復興南路一段100號")]
+    [InlineData("永和區中正路100號",       "新北市永和區中正路100號")]
+    public void NormalizeAddress_AddsMissingCityPrefix(string input, string expected)
+        => Assert.Equal(expected, GeocodingService.NormalizeAddress(input));
+
+    [Fact]
+    public void NormalizeAddress_CleanAddress_IsUnchanged()
+        => Assert.Equal("台北市大安區復興南路一段100號",
+            GeocodingService.NormalizeAddress("台北市大安區復興南路一段100號"));
 }
