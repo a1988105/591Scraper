@@ -1,0 +1,10 @@
+.git
+.gitignore
+.claude
+**/bin
+**/obj
+**/*.user
+**/*.suo
+**/*.lscache
+tests
+docs

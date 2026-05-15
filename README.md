@@ -129,6 +129,73 @@ docker run -p 8080:8080 \
 
 ---
 
+## 部署到 Railway（WebApp）
+
+目前專案根目錄已有 `Dockerfile`，Railway 會自動使用它。
+
+### 1. 建立 Railway Service
+
+有兩種做法：
+
+- 連 GitHub repo，讓 Railway 自動從 repo 部署
+- 用 CLI 在本機目錄部署：`railway up`
+
+repo 根目錄已包含 `railway.json`，會指定：
+
+- 使用 root `Dockerfile`
+- healthcheck path 為 `/health`
+- 只在 `Dockerfile`、`.dockerignore`、`src/WebApp/**` 變更時觸發此 service 部署
+
+### 2. 設定必要環境變數
+
+在 Railway 的 service variables 加入：
+
+```env
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_KEY=your-supabase-anon-key
+```
+
+不需要手動設定 `PORT`。Railway 會在執行時自動注入；WebApp 現在會自動綁定該埠。
+
+### 3. 產生公開網址
+
+部署完成後，到：
+
+- `Settings`
+- `Networking`
+- `Public Networking`
+
+按 `Generate Domain` 產生 `.railway.app` 網址。
+
+### 4. 驗證
+
+部署成功後可測：
+
+- `/health`
+- `/api/listings`
+
+例如：
+
+```text
+https://your-app.up.railway.app/health
+```
+
+如果你是用 CLI，最短流程是：
+
+```bash
+railway login
+railway init
+railway up
+```
+
+### 5. 常見失敗點
+
+- `SUPABASE_URL` 或 `SUPABASE_KEY` 沒設，服務會在啟動時直接失敗
+- 如果 Supabase table 或 RLS policy 沒開好，API 會回 4xx/5xx
+- Railway 使用 root `Dockerfile`；若之後搬位置，要設定 `RAILWAY_DOCKERFILE_PATH`
+
+---
+
 ## WebApp API
 
 | 方法 | 路徑 | 說明 |

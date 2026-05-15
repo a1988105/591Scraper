@@ -8,6 +8,12 @@ EnvFileLoader.LoadIfExists(
 
 var builder = WebApplication.CreateBuilder(args);
 
+var railwayPort = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrWhiteSpace(railwayPort))
+{
+    builder.WebHost.UseUrls($"http://0.0.0.0:{railwayPort}");
+}
+
 var supabaseUrl = Environment.GetEnvironmentVariable("SUPABASE_URL")
     ?? throw new InvalidOperationException("SUPABASE_URL 未設定");
 var supabaseKey = Environment.GetEnvironmentVariable("SUPABASE_KEY")
@@ -22,6 +28,8 @@ builder.Services.AddSingleton(sp =>
 
 var app = builder.Build();
 app.UseStaticFiles();
+
+app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 // ── Listings ────────────────────────────────────────────────────
 app.MapGet("/api/listings", async (
