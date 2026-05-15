@@ -144,4 +144,15 @@ public class GeocodingServiceTests
         // Level 3: road-level
         Assert.Contains("台北市大安區復興南路一段", levels);
     }
+
+    [Fact]
+    public void ExtractFallbackLevels_LaneAddress_FallsBackToRoadSectionLevel()
+    {
+        // Known limitation: the regex does not parse 巷/弄 components.
+        // 96巷10號 is not captured — the fallback degrades to road+section level.
+        var levels = GeocodingService.ExtractFallbackLevels(
+            "台北市大安區和平東路一段96巷10號").ToList();
+
+        Assert.Contains("台北市大安區和平東路一段", levels);
+    }
 }
