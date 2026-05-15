@@ -55,6 +55,7 @@ public class GeocodingServiceTests
     [InlineData("台北市大安區復興南路一段100號3f",  "台北市大安區復興南路一段100號")]
     [InlineData("台北市大安區復興南路一段100號3樓", "台北市大安區復興南路一段100號")]
     [InlineData("台北市大安區復興南路一段100號B1F", "台北市大安區復興南路一段100號")]
+    [InlineData("台北市大安區復興南路一段100號B1", "台北市大安區復興南路一段100號")]
     public void NormalizeAddress_StripsFloorSuffix(string input, string expected)
         => Assert.Equal(expected, GeocodingService.NormalizeAddress(input));
 

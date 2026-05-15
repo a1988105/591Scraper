@@ -19,6 +19,7 @@ public class GeocodingService(HttpClient httpClient)
 
         foreach (var fallback in ExtractFallbackLevels(cleaned))
         {
+            await Task.Delay(1100);
             result = await CallNominatimAsync(fallback);
             if (result.HasValue) return result;
         }
@@ -72,6 +73,8 @@ public class GeocodingService(HttpClient httpClient)
         return AddCityPrefix(address);
     }
 
+    // Scope: Taipei City and New Taipei City only.
+    // Addresses from other cities geocode without district-level city prefix injection.
     private static readonly Dictionary<string, string> DistrictToCity = new()
     {
         // 台北市 12 區
