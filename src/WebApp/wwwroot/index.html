@@ -32,28 +32,33 @@
 
     <aside class="sidebar">
       <div class="panel" id="filterPanel">
-        <h4>篩選條件</h4>
-        <label><input type="checkbox" id="filterFurniture"> 有家具</label>
-        <label><input type="checkbox" id="filterInternet"> 有網路</label>
-        <label><input type="checkbox" id="filterGas"> 天然氣</label>
-        <label><input type="checkbox" id="filterParking"> 停車位</label>
-        <label><input type="checkbox" id="filterPet"> 可養寵物</label>
-        <div class="price-filter">
-          <label>租金上限
-            <input type="number" id="filterMaxPrice" placeholder="不限" step="1000">
-          </label>
+        <div class="filter-header" onclick="toggleFilterPanel()">
+          <h4>篩選條件</h4>
+          <span class="filter-chevron">▼</span>
         </div>
-        <div class="price-filter">
-          <label>坪數（最小）
-            <input type="number" id="filterMinPing" placeholder="不限" step="1" min="0">
-          </label>
+        <div class="filter-body">
+          <label><input type="checkbox" id="filterFurniture"> 有家具</label>
+          <label><input type="checkbox" id="filterInternet"> 有網路</label>
+          <label><input type="checkbox" id="filterGas"> 天然氣</label>
+          <label><input type="checkbox" id="filterParking"> 停車位</label>
+          <label><input type="checkbox" id="filterPet"> 可養寵物</label>
+          <div class="price-filter">
+            <label>租金上限
+              <input type="number" id="filterMaxPrice" placeholder="不限" step="1000">
+            </label>
+          </div>
+          <div class="price-filter">
+            <label>坪數（最小）
+              <input type="number" id="filterMinPing" placeholder="不限" step="1" min="0">
+            </label>
+          </div>
+          <div class="price-filter">
+            <label>坪數（最大）
+              <input type="number" id="filterMaxPing" placeholder="不限" step="1" min="0">
+            </label>
+          </div>
+          <button class="btn-filter" onclick="applyFilters()">套用篩選</button>
         </div>
-        <div class="price-filter">
-          <label>坪數（最大）
-            <input type="number" id="filterMaxPing" placeholder="不限" step="1" min="0">
-          </label>
-        </div>
-        <button class="btn-filter" onclick="applyFilters()">套用篩選</button>
       </div>
 
       <div class="panel" id="listPanel">
@@ -63,8 +68,13 @@
     </aside>
   </div>
 
+  <div class="mobile-view-toggle" id="mobileViewToggle">
+    <button onclick="toggleMobileView()">🗺 地圖</button>
+  </div>
+
   <div id="infoModal" class="modal hidden">
     <div class="modal-content">
+      <div class="modal-handle"></div>
       <button class="modal-close" onclick="closeModal()">✕</button>
       <img id="modalPhoto" src="" alt="物件照片" class="modal-photo hidden">
       <div class="modal-body">

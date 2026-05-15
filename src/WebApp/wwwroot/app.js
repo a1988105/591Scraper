@@ -355,6 +355,23 @@ window.quickToggleRejected = async function (listingId, isCurrentlyRejected) {
   await loadView(activeView);
 };
 
+// ── Mobile map / list toggle ─────────────────────────────────────
+let mobileView = 'list';
+
+window.toggleMobileView = function () {
+  mobileView = mobileView === 'list' ? 'map' : 'list';
+  document.querySelector('.layout').classList.toggle('show-map', mobileView === 'map');
+  document.querySelector('.mobile-view-toggle button').textContent =
+    mobileView === 'map' ? '📋 清單' : '🗺 地圖';
+  if (mobileView === 'map') setTimeout(() => map.invalidateSize(), 50);
+};
+
+// ── Filter panel collapse (mobile) ───────────────────────────────
+window.toggleFilterPanel = function () {
+  if (window.innerWidth <= 720)
+    document.getElementById('filterPanel').classList.toggle('open');
+};
+
 // ── API helper ───────────────────────────────────────────────────
 async function apiFetch(url, method = 'GET', body = null) {
   const options = { method, headers: { 'Content-Type': 'application/json' } };
