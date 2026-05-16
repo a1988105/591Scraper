@@ -221,7 +221,7 @@ function buildCard(listing, favMap) {
     <div class="card-header">
       <div class="card-title" title="${listing.title}">${listing.title}</div>
       <button class="card-reject-btn${isRejected ? ' is-rejected' : ''}"
-        onclick="event.stopPropagation(); quickToggleRejected(${listing.id}, ${isRejected})">
+        onclick="event.stopPropagation(); quickToggleRejected(${listing.id}, ${isRejected}, this)">
         ${isRejected ? '↩ 恢復' : '✕ 不考慮'}
       </button>
     </div>
@@ -328,15 +328,27 @@ window.closeModal = function () {
 
 // ── Favorite actions ─────────────────────────────────────────────
 window.addFavorite = async function () {
-  await apiFetch(`/api/favorites/${currentListingId}`, 'POST');
-  await loadView(activeView);
-  closeModal();
+  const btn = document.querySelector('#modalActions button');
+  setButtonLoading(btn, true, '加入中...');
+  try {
+    await apiFetch(`/api/favorites/${currentListingId}`, 'POST');
+    await loadView(activeView);
+    closeModal();
+  } catch {
+    setButtonLoading(btn, false);
+  }
 };
 
 window.removeFavorite = async function () {
-  await apiFetch(`/api/favorites/${currentListingId}`, 'DELETE');
-  await loadView(activeView);
-  closeModal();
+  const btn = document.querySelector('#modalActions button');
+  setButtonLoading(btn, true, '移除中...');
+  try {
+    await apiFetch(`/api/favorites/${currentListingId}`, 'DELETE');
+    await loadView(activeView);
+    closeModal();
+  } catch {
+    setButtonLoading(btn, false);
+  }
 };
 
 window.saveStatus = async function (status) {
@@ -381,16 +393,21 @@ window.toggleShowRejected = function (visible) {
 };
 
 // ── Quick reject toggle on card ──────────────────────────────────
-window.quickToggleRejected = async function (listingId, isCurrentlyRejected) {
-  if (isCurrentlyRejected) {
-    await apiFetch(`/api/favorites/${listingId}`, 'PATCH', { status: '待看' });
-  } else {
-    if (!favoriteIds.has(listingId)) {
-      await apiFetch(`/api/favorites/${listingId}`, 'POST');
+window.quickToggleRejected = async function (listingId, isCurrentlyRejected, btn) {
+  setButtonLoading(btn, true, '處理中');
+  try {
+    if (isCurrentlyRejected) {
+      await apiFetch(`/api/favorites/${listingId}`, 'PATCH', { status: '待看' });
+    } else {
+      if (!favoriteIds.has(listingId)) {
+        await apiFetch(`/api/favorites/${listingId}`, 'POST');
+      }
+      await apiFetch(`/api/favorites/${listingId}`, 'PATCH', { status: '不考慮' });
     }
-    await apiFetch(`/api/favorites/${listingId}`, 'PATCH', { status: '不考慮' });
+    await loadView(activeView);
+  } catch {
+    setButtonLoading(btn, false);
   }
-  await loadView(activeView);
 };
 
 // ── Mobile map / list toggle ─────────────────────────────────────
