@@ -28,7 +28,9 @@
   </nav>
 
   <div class="layout">
-    <div id="map"></div>
+    <div id="map">
+    <button class="mini-map-expand" onclick="toggleMobileView()">⛶ 展開</button>
+  </div>
 
     <aside class="sidebar">
       <div class="panel" id="filterPanel">
@@ -69,7 +71,7 @@
   </div>
 
   <div class="mobile-view-toggle" id="mobileViewToggle">
-    <button onclick="toggleMobileView()">🗺 地圖</button>
+    <button onclick="toggleMobileView()">📋 清單</button>
   </div>
 
   <div id="infoModal" class="modal hidden">

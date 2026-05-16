@@ -169,6 +169,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   box-shadow: 0 4px 24px rgba(0,0,0,0.5), 0 0 0 1px rgba(99,102,241,0.4);
   -webkit-tap-highlight-color: transparent; transition: transform 0.1s; }
 .mobile-view-toggle button:active { transform: scale(0.95); }
+.mini-map-expand { display: none; }
 
 /* ─── Mobile responsive ──────────────────────────────────────────  */
 @media (max-width: 720px) {
@@ -180,13 +181,52 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     padding: 6px 14px; border-top: 1px solid #334155; gap: 6px; }
   .tab { flex: 1; text-align: center; padding: 7px 4px; min-height: 36px; font-size: 0.88em; }
 
-  /* Layout: full-height, views toggled by class */
-  .layout { position: relative; }
-  #map { position: absolute; inset: 0; display: none; z-index: 1; }
-  .layout.show-map #map { display: block; }
-  .sidebar { width: 100%; border-left: none; flex: 1; min-height: 0; overflow-y: auto;
-    padding-bottom: 72px; /* space for floating button */ }
+  /* Layout: column flex, mini-map always visible */
+  .layout { flex-direction: column; position: relative; }
+
+  #map {
+    flex: none;
+    height: 110px;
+    width: 100%;
+    display: block;
+    position: relative;
+    z-index: 1;
+  }
+
+  .layout.show-map #map {
+    position: absolute;
+    inset: 0;
+    height: auto;
+    z-index: 2;
+  }
+
+  .sidebar {
+    width: 100%;
+    border-left: none;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding-bottom: 0;
+  }
   .layout.show-map .sidebar { display: none; }
+
+  /* Expand button inside mini-map */
+  .mini-map-expand {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    background: rgba(99,102,241,0.9);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    padding: 4px 10px;
+    font-size: 0.78em;
+    font-weight: 600;
+    cursor: pointer;
+    z-index: 1000;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .layout.show-map .mini-map-expand { display: none; }
 
   /* Filter collapse on mobile */
   .filter-header { cursor: pointer; -webkit-tap-highlight-color: transparent; }
@@ -210,6 +250,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   .modal-photo { height: 180px; border-radius: 20px 20px 0 0; }
   .modal-close { top: 18px; }
 
-  /* Show floating toggle button */
-  .mobile-view-toggle { display: flex; }
+  /* Floating button: only visible in full-screen map mode */
+  .layout.show-map ~ .mobile-view-toggle { display: flex; }
 }
