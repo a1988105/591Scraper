@@ -51,6 +51,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 .listing-card:hover { border-left-color: #6366f1; }
 .listing-card.active { border-left-color: #10b981; }
 .listing-card.rejected { background: #2d1515; border-left-color: #ef4444; }
+.listing-card.card-active { border-left-color: #fbbf24; box-shadow: 0 0 0 1px rgba(251,191,36,0.3); }
 .listing-card.rejected:hover { border-left-color: #f87171; }
 
 .card-header { display: flex; align-items: flex-start; gap: 6px; margin-bottom: 3px; }
@@ -185,8 +186,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   .layout { flex-direction: column; position: relative; }
 
   #map {
-    flex: none;
-    height: 110px;
+    flex: 1;
+    min-height: 0;
     width: 100%;
     display: block;
     position: relative;

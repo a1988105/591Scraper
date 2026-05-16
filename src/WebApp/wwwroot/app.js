@@ -198,7 +198,7 @@ function renderMarkers(listings) {
       `<b>${listing.title}</b><br>$${listing.price.toLocaleString()} / 月`,
       { direction: 'top', offset: [0, -12], permanent: true, opacity: tooltipsVisible ? 0.9 : 0 }
     );
-    marker.on('click', () => openModal(listing, fav));
+    marker.on('click', () => { highlightMarker(listing); highlightCard(listing.id); openModal(listing, fav); });
     markers.push(marker);
     markerMap.set(listing.id, { marker, listing });
   });
@@ -217,6 +217,7 @@ function buildCard(listing, favMap) {
   const isRejected = fav?.status === '不考慮';
   const card = document.createElement('div');
   card.className = 'listing-card' + (fav && !isRejected ? ' active' : '') + (isRejected ? ' rejected' : '');
+  card.dataset.listingId = listing.id;
   card.innerHTML = `
     <div class="card-header">
       <div class="card-title" title="${listing.title}">${listing.title}</div>
@@ -368,6 +369,15 @@ function highlightMarker(listing) {
   activeMarkerId = listing.id;
   const entry = markerMap.get(listing.id);
   if (entry) entry.marker.setIcon(makeCircleIcon(getMarkerColor(listing), true));
+}
+
+function highlightCard(listingId) {
+  document.querySelectorAll('.listing-card.card-active').forEach(el => el.classList.remove('card-active'));
+  const card = document.querySelector(`[data-listing-id="${listingId}"]`);
+  if (card) {
+    card.classList.add('card-active');
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
 }
 
 // ── Tooltip toggle ───────────────────────────────────────────────
