@@ -36,6 +36,7 @@ let currentListings = [];
 let currentFavorites = [];
 let favoriteIds = new Set();
 let currentListingId = null;
+let activeListingParams = '';
 
 // ── Map init ─────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
@@ -93,8 +94,9 @@ async function loadFavorites() {
 
 // ── All listings view ────────────────────────────────────────────
 async function loadAllListings() {
+  const url = activeListingParams ? `/api/listings?${activeListingParams}` : '/api/listings';
   const [listings, favs] = await Promise.all([
-    apiFetch('/api/listings'),
+    apiFetch(url),
     apiFetch('/api/favorites')
   ]);
   currentListings = listings;
@@ -148,9 +150,10 @@ window.applyFilters = async function () {
   if (minPing)      params.set('minSizePing', minPing);
   if (maxPing)      params.set('maxSizePing', maxPing);
 
+  activeListingParams = params.toString();
   setPageLoading(true);
   try {
-    const listings = await apiFetch('/api/listings?' + params.toString());
+    const listings = await apiFetch('/api/listings?' + activeListingParams);
     currentListings = listings;
     document.getElementById('countBadge').textContent = `${listings.length} 筆物件`;
     renderList(listings, currentFavorites);
