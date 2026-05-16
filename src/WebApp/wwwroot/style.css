@@ -212,6 +212,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 
   /* Expand button inside mini-map */
   .mini-map-expand {
+    display: block;
     position: absolute;
     bottom: 8px;
     right: 8px;
@@ -251,5 +252,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   .modal-close { top: 18px; }
 
   /* Floating button: only visible in full-screen map mode */
+  .mobile-view-toggle { display: none; }
   .layout.show-map ~ .mobile-view-toggle { display: flex; }
 }
