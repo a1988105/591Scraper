@@ -416,9 +416,7 @@ let mobileView = 'list';
 window.toggleMobileView = function () {
   mobileView = mobileView === 'list' ? 'map' : 'list';
   document.querySelector('.layout').classList.toggle('show-map', mobileView === 'map');
-  document.querySelector('.mobile-view-toggle button').textContent =
-    mobileView === 'map' ? '📋 清單' : '🗺 地圖';
-  if (mobileView === 'map') setTimeout(() => map.invalidateSize(), 50);
+  setTimeout(() => map.invalidateSize(), 50);
 };
 
 // ── Filter panel collapse (mobile) ───────────────────────────────
