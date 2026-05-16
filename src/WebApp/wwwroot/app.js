@@ -38,6 +38,11 @@ let favoriteIds = new Set();
 let currentListingId = null;
 let activeListingParams = '';
 
+// Prevent browser-level pinch zoom on iOS (user-scalable=no is ignored on iOS 10+)
+document.addEventListener('touchmove', function(e) {
+  if (e.touches.length > 1) e.preventDefault();
+}, { passive: false });
+
 // ── Map init ─────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   // Restore toggle UI states from localStorage

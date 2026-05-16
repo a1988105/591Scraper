@@ -2,8 +2,13 @@
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+html { height: 100%; overflow: hidden; }
+
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  background: #0f172a; color: #e2e8f0; height: 100vh; display: flex; flex-direction: column; }
+  background: #0f172a; color: #e2e8f0;
+  height: 100vh; height: 100svh;
+  overflow: hidden;
+  display: flex; flex-direction: column; }
 
 .topnav { display: flex; align-items: center; gap: 16px; padding: 10px 20px;
   background: #1e293b; border-bottom: 1px solid #334155; height: 52px; flex-shrink: 0; }
