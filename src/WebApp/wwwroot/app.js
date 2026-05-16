@@ -1,3 +1,30 @@
+// ── Loading state helpers ────────────────────────────────────────
+function setPageLoading(on) {
+  const badge = document.getElementById('countBadge');
+  const list = document.getElementById('listContainer');
+  if (on) {
+    badge.innerHTML = '<span class="badge-spinner"></span> 載入中...';
+    list.classList.add('loading');
+  } else {
+    list.classList.remove('loading');
+    if (badge.querySelector('.badge-spinner')) {
+      badge.textContent = '—';
+    }
+  }
+}
+
+function setButtonLoading(btn, on, loadingText = '') {
+  if (on) {
+    btn.dataset.originalHtml = btn.innerHTML;
+    btn.innerHTML = `<span class="btn-spinner"></span>${loadingText}`;
+    btn.disabled = true;
+  } else {
+    btn.innerHTML = btn.dataset.originalHtml || '';
+    btn.disabled = false;
+    delete btn.dataset.originalHtml;
+  }
+}
+
 let map;
 let markers = [];
 let markerMap = new Map();   // listingId → marker
@@ -39,10 +66,15 @@ window.switchView = function (view) {
 
 async function loadView(view) {
   clearMarkers();
-  if (view === 'favorites') {
-    await loadFavorites();
-  } else {
-    await loadAllListings();
+  setPageLoading(true);
+  try {
+    if (view === 'favorites') {
+      await loadFavorites();
+    } else {
+      await loadAllListings();
+    }
+  } finally {
+    setPageLoading(false);
   }
 }
 
@@ -116,10 +148,16 @@ window.applyFilters = async function () {
   if (minPing)      params.set('minSizePing', minPing);
   if (maxPing)      params.set('maxSizePing', maxPing);
 
-  const listings = await apiFetch('/api/listings?' + params.toString());
-  currentListings = listings;
-  renderList(listings, currentFavorites);
-  renderMarkers(listings);
+  setPageLoading(true);
+  try {
+    const listings = await apiFetch('/api/listings?' + params.toString());
+    currentListings = listings;
+    document.getElementById('countBadge').textContent = `${listings.length} 筆物件`;
+    renderList(listings, currentFavorites);
+    renderMarkers(listings);
+  } finally {
+    setPageLoading(false);
+  }
 };
 
 // ── Render markers ───────────────────────────────────────────────
