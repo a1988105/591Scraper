@@ -36,6 +36,7 @@ let currentListings = [];
 let currentFavorites = [];
 let favoriteIds = new Set();
 let currentListingId = null;
+let activeListingParams = '';
 
 // ── Map init ─────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
@@ -93,8 +94,9 @@ async function loadFavorites() {
 
 // ── All listings view ────────────────────────────────────────────
 async function loadAllListings() {
+  const url = activeListingParams ? `/api/listings?${activeListingParams}` : '/api/listings';
   const [listings, favs] = await Promise.all([
-    apiFetch('/api/listings'),
+    apiFetch(url),
     apiFetch('/api/favorites')
   ]);
   currentListings = listings;
@@ -148,9 +150,10 @@ window.applyFilters = async function () {
   if (minPing)      params.set('minSizePing', minPing);
   if (maxPing)      params.set('maxSizePing', maxPing);
 
+  activeListingParams = params.toString();
   setPageLoading(true);
   try {
-    const listings = await apiFetch('/api/listings?' + params.toString());
+    const listings = await apiFetch('/api/listings?' + activeListingParams);
     currentListings = listings;
     document.getElementById('countBadge').textContent = `${listings.length} 筆物件`;
     renderList(listings, currentFavorites);
@@ -198,7 +201,7 @@ function renderMarkers(listings) {
       `<b>${listing.title}</b><br>$${listing.price.toLocaleString()} / 月`,
       { direction: 'top', offset: [0, -12], permanent: true, opacity: tooltipsVisible ? 0.9 : 0 }
     );
-    marker.on('click', () => openModal(listing, fav));
+    marker.on('click', () => { highlightMarker(listing); highlightCard(listing.id); openModal(listing, fav); });
     markers.push(marker);
     markerMap.set(listing.id, { marker, listing });
   });
@@ -217,6 +220,7 @@ function buildCard(listing, favMap) {
   const isRejected = fav?.status === '不考慮';
   const card = document.createElement('div');
   card.className = 'listing-card' + (fav && !isRejected ? ' active' : '') + (isRejected ? ' rejected' : '');
+  card.dataset.listingId = listing.id;
   card.innerHTML = `
     <div class="card-header">
       <div class="card-title" title="${listing.title}">${listing.title}</div>
@@ -368,6 +372,15 @@ function highlightMarker(listing) {
   activeMarkerId = listing.id;
   const entry = markerMap.get(listing.id);
   if (entry) entry.marker.setIcon(makeCircleIcon(getMarkerColor(listing), true));
+}
+
+function highlightCard(listingId) {
+  document.querySelectorAll('.listing-card.card-active').forEach(el => el.classList.remove('card-active'));
+  const card = document.querySelector(`[data-listing-id="${listingId}"]`);
+  if (card) {
+    card.classList.add('card-active');
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
 }
 
 // ── Tooltip toggle ───────────────────────────────────────────────
